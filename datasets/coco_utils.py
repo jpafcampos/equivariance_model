@@ -4,7 +4,7 @@ import torch.utils.data
 import torchvision
 from PIL import Image
 import os
-from pycocotools import mask as coco_mask
+#from pycocotools import mask as coco_mask
 from torchvision.transforms import Compose
 import my_transforms as MT
 import my_datasets as mdset 
