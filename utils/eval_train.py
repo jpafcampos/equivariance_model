@@ -1,4 +1,4 @@
-import ignite.distributed as idist
+#import ignite.distributed as idist
 from ignite.contrib.engines import common
 from ignite.contrib.handlers import ProgressBar
 from ignite.engine import Engine, Events, create_supervised_evaluator
