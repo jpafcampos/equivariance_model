@@ -60,7 +60,7 @@ def main():
     parser.add_argument('--split_ratio', default=0.3, type=float, help="Amount of data we used for training")
     parser.add_argument('--dataroot_voc', default='/data/voc2012', type=str)
     parser.add_argument('--dataroot_sbd', default='/data/sbd', type=str)
-    parser.add_argument('--dataroot_landcover', default='/users/k/karmimy/data/landcover', type=str)
+    parser.add_argument('--dataroot_landcover', default='/share/DEEPLEARNING/datasets/landcover', type=str)
     
     # Save parameters
     parser.add_argument('--model_name', type=str,help="what name to use for saving")
