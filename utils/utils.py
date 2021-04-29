@@ -35,8 +35,7 @@ def get_voc_cst():
     return VOC_CLASSES,NUM_CLASSES
 
 def get_criterion(key:str,reduction='batchmean') -> dict:
-    d = {'CE':nn.CrossEntropyLoss(ignore_index=21),'KL':nn.KLDivLoss(reduction = reduction, log_target = False),\
-        'L1':nn.L1Loss(reduction='mean'),'MSE':nn.MSELoss()}
+    d = {'CE':nn.CrossEntropyLoss(ignore_index=21),'KL':nn.KLDivLoss(reduction = reduction, log_target = False), 'L1':nn.L1Loss(reduction='mean'),'MSE':nn.MSELoss()}
     return d[key]
 
 ### TYPE 

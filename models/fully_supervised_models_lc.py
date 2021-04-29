@@ -141,6 +141,7 @@ def main():
     # ------------
     # Auto lr finding
     
+    print(save_dir)
     
     criterion = nn.CrossEntropyLoss(ignore_index=num_classes) # On ignore la classe border.
     torch.autograd.set_detect_anomaly(True)
