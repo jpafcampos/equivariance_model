@@ -13,9 +13,9 @@ import eval_train as ev
 from argparse import ArgumentParser
 import torch.utils.data as tud
 
-import fcn8s
+#import fcn8s
 import fcn16s
-import fcn32s
+#import fcn32s
 import vgg
 
 
