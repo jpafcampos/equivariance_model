@@ -13,6 +13,11 @@ import eval_train as ev
 from argparse import ArgumentParser
 import torch.utils.data as tud
 
+import fcn8s
+import fcn16s
+import fcn32s
+import vgg
+
 
 def main():
     #torch.manual_seed(42)
@@ -121,7 +126,8 @@ def main():
     # ------------
     
     if args.model.upper()=='FCN':
-        model = models.segmentation.fcn_resnet101(pretrained=args.pretrained,num_classes=num_classes)
+        model = fcn16s.FCN16s(n_class= num_classes)
+        #model = models.segmentation.fcn_resnet101(pretrained=args.pretrained,num_classes=num_classes)
     elif args.model.upper()=='DLV3':
         model = models.segmentation.deeplabv3_resnet101(pretrained=args.pretrained,num_classes=num_classes)
     else:
@@ -142,7 +148,7 @@ def main():
     # Auto lr finding
     
     print(save_dir)
-    
+
     criterion = nn.CrossEntropyLoss(ignore_index=num_classes) # On ignore la classe border.
     torch.autograd.set_detect_anomaly(True)
     optimizer = torch.optim.SGD(model.parameters(),lr=args.learning_rate,momentum=args.moment,weight_decay=args.wd)
