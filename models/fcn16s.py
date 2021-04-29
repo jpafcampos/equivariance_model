@@ -2,7 +2,7 @@ import os.path as osp
 
 #import fcn
 import torch.nn as nn
-
+import numpy as np
 #from .fcn32s import get_upsampling_weight
 
 # https://github.com/shelhamer/fcn.berkeleyvision.org/blob/master/surgery.py
