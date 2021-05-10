@@ -128,7 +128,7 @@ def main():
     
     if args.model.upper()=='FCN':
         vgg_model = fcn.VGGNet(requires_grad=True)
-        fcn_model = fcn.FCN8s(pretrained_net=vgg_model, n_class=num_classes)
+        model = fcn.FCN8s(pretrained_net=vgg_model, n_class=num_classes)
         #model = fcn16s.FCN16s(n_class= num_classes)
         #model = models.segmentation.fcn_resnet101(pretrained=args.pretrained,num_classes=num_classes)
     elif args.model.upper()=='DLV3':
