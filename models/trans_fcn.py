@@ -395,7 +395,7 @@ class TransFCN8s(nn.Module):
             dropout = 0.1,
             emb_dropout = 0.1
         )
-        self.channel_reduction = nn.Conv2d(in_channels=768, out_channels=1024, kernel_size=3, padding=1)
+        self.channel_reduction = nn.Conv2d(in_channels=dim, out_channels=1024, kernel_size=3, padding=1)
         self.n_class = num_class
         self.pretrained_net = pretrained_net
         self.relu    = nn.ReLU(inplace=True)
@@ -420,7 +420,7 @@ class TransFCN8s(nn.Module):
         x3 = out_resnet[2]      #H/16  1024 ch
         x4 = out_resnet[3]      #H/32  2048 channels
         x3 = self.transformer(x3)
-        x3 = torch.reshape(x3, (self.batch_size,768,32,32))
+        x3 = torch.reshape(x3, (self.batch_size,self.dim,32,32))
         x3 = self.channel_reduction(x3)
         x3 = self.relu(x3)
         score = self.relu(self.deconv1(x4))               
@@ -436,8 +436,8 @@ class TransFCN8s(nn.Module):
 
 
 
-#x = torch.rand([1,3,512,512])
-#resmodel = resnet50(pretrained=True)
-#transfcn = TransFCN8s(resmodel, 4, 768, 6, 12)
-#x = transfcn(x)
-#print(x.size())
+x = torch.rand([8,3,512,512])
+resmodel = resnet50(pretrained=True)
+transfcn = TransFCN8s(resmodel, 4, 768, 6, 12, 8)
+x = transfcn(x)
+print(x.size())
