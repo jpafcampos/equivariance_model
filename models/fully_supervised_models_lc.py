@@ -12,6 +12,7 @@ import coco_utils as cu
 import eval_train as ev
 from argparse import ArgumentParser
 import torch.utils.data as tud
+import trans_fcn
 
 #import fcn8s
 import fcn16s
@@ -53,7 +54,7 @@ def main():
     parser.add_argument('--scale', default=True, type=U.str2bool,help="Use scale as data augmentation")
     parser.add_argument('--landcover', default=False, type=U.str2bool,\
          help="Use Landcover dataset instead of VOC and COCO")
-    parser.add_argument('--size_img', default=520, type=int,help="Size of input images")
+    parser.add_argument('--size_img', default=512, type=int,help="Size of input images")
     parser.add_argument('--size_crop', default=480, type=int,help="Size of crop image during training")
     
     # Dataloader and gpu
@@ -127,8 +128,8 @@ def main():
     # ------------
     
     if args.model.upper()=='FCN':
-        vgg_model = fcn.VGGNet(requires_grad=True)
-        model = fcn.FCN8s(pretrained_net=vgg_model, n_class=num_classes)
+        res50model = trans_fcn.resnet50(pretrained=True)
+        model = trans_fcn.TransFCN8s(pretrained_net=res50model, n_class=num_classes)
         #model = fcn16s.FCN16s(n_class= num_classes)
         #model = models.segmentation.fcn_resnet101(pretrained=args.pretrained,num_classes=num_classes)
     elif args.model.upper()=='DLV3':
