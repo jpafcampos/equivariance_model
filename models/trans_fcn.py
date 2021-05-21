@@ -376,11 +376,12 @@ class ViT(nn.Module):
 #######################
 class TransFCN8s(nn.Module):
 
-    def __init__(self, pretrained_net, num_class, dim, depth, heads):
+    def __init__(self, pretrained_net, num_class, dim, depth, heads, batch_size):
         super(TransFCN8s, self).__init__()
         self.dim = dim
         self.depth = depth
         self.heads = heads
+        self.batch_size = batch_size
         #Transformer unit (encoder)
         self.transformer = ViT(
             image_size = 32,
@@ -419,7 +420,7 @@ class TransFCN8s(nn.Module):
         x3 = out_resnet[2]      #H/16  1024 ch
         x4 = out_resnet[3]      #H/32  2048 channels
         x3 = self.transformer(x3)
-        x3 = torch.reshape(x3, (1,768,32,32))
+        x3 = torch.reshape(x3, (self.batch_size,768,32,32))
         x3 = self.channel_reduction(x3)
         x3 = self.relu(x3)
         score = self.relu(self.deconv1(x4))               
