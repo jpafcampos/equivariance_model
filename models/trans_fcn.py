@@ -1,7 +1,3 @@
-# -*- coding: utf-8 -*-
-## ----------------------------------------------------------------------
-# https://github.com/pochih/FCN-pytorch
-## ----------------------------------------------------------------------
 from __future__ import print_function
 
 import os.path as osp
@@ -18,6 +14,11 @@ import numpy as np
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
 #from .fcn32s import get_upsampling_weight
+import sys
+sys.path.insert(1, '../utils')
+import utils as U
+import vit
+
 
 
 ############################

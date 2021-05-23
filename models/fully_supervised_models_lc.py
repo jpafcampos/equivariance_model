@@ -13,6 +13,7 @@ import eval_train as ev
 from argparse import ArgumentParser
 import torch.utils.data as tud
 import trans_fcn
+import resnet50ViT
 
 #import fcn8s
 import fcn16s
@@ -128,8 +129,9 @@ def main():
     # ------------
     
     if args.model.upper()=='FCN':
-        res50model = trans_fcn.resnet50(pretrained=True)
-        model = trans_fcn.TransFCN8s(pretrained_net=res50model, num_class=num_classes, dim=768, depth=6, heads=12, batch_size = args.batch_size, trans_img_size=30)
+        resnet50 = models.resnet50(pretrained=True)
+        resnet50_backbone = models._utils.IntermediateLayerGetter(resnet50, {'layer1': 'feat1', 'layer2': 'feat2', 'layer3': 'feat3', 'layer4': 'feat4'})
+        model = resnet50ViT.TransFCN8s(pretrained_net=resnet50_backbone, num_class=num_classes, dim=768, depth=3, heads=6, batch_size = args.batch_size, trans_img_size=30)
         #model = fcn16s.FCN16s(n_class= num_classes)
         #model = models.segmentation.fcn_resnet101(pretrained=args.pretrained,num_classes=num_classes)
     elif args.model.upper()=='DLV3':

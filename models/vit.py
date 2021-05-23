@@ -1,10 +1,25 @@
+import os.path as osp
+import copy
 import torch
-from torch import nn, einsum
+from torch import einsum
+import torch.nn as nn
 import torch.nn.functional as F
-
+import torch.optim as optim
+from torchvision import models
+from torchvision.models.vgg import VGG
+from torchvision.models.utils import load_state_dict_from_url
+import numpy as np
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
+#from .fcn32s import get_upsampling_weight
+import sys
+sys.path.insert(1, '../utils')
+import utils as U
 
+
+############################
+#     TRANSFORMER
+############################
 # helpers
 
 def pair(t):
@@ -113,14 +128,8 @@ class ViT(nn.Module):
         x = self.to_patch_embedding(img)
         b, n, _ = x.shape
 
-        cls_tokens = repeat(self.cls_token, '() n d -> b n d', b = b)
-        x = torch.cat((cls_tokens, x), dim=1)
-        x += self.pos_embedding[:, :(n + 1)]
+        x += self.pos_embedding[:, :(n)]
         x = self.dropout(x)
 
         x = self.transformer(x)
-
-        x = x.mean(dim = 1) if self.pool == 'mean' else x[:, 0]
-
-        x = self.to_latent(x)
-        return self.mlp_head(x)
+        return x
