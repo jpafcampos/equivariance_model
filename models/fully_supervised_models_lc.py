@@ -142,6 +142,7 @@ def main():
     elif args.model.upper()=='TransFCN8s':
         pass
     elif args.model.upper()=='FCN':
+        print("chosen model, FCN")
         pass
     else:
         raise Exception('model must be "FCN" or "DLV3"')
