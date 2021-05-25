@@ -138,6 +138,7 @@ def main():
     elif args.model.upper()=='DLV3':
         model = models.segmentation.deeplabv3_resnet101(pretrained=args.pretrained,num_classes=num_classes)
     elif args.model.upper()=='ViT':
+        print("chosen model, ViT")
         pass
     elif args.model.upper()=='TransFCN8s':
         pass
