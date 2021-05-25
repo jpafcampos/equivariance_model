@@ -145,7 +145,7 @@ def main():
     elif args.model.upper()=='FCN':
         pass
     else:
-        raise Exception('model must be "FCN" or "DLV3"')
+        raise Exception('model must be "FCN", "DLV3", "RESVIT', "VIT (all upper case)")
     #model.to(device)
 
     

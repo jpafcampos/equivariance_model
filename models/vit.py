@@ -127,11 +127,7 @@ class ViT(nn.Module):
     def forward(self, img):
         x = self.to_patch_embedding(img)
         b, n, _ = x.shape
-        print(img.size())
-        print(x.size())
-        print(b)
-        print(n)
-
+        
         x += self.pos_embedding[:, :(n)]
         x = self.dropout(x)
 
