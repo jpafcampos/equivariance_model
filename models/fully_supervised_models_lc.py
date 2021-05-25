@@ -140,7 +140,7 @@ def main():
     elif args.model.upper()=='DLV3':
         model = models.segmentation.deeplabv3_resnet101(pretrained=args.pretrained,num_classes=num_classes)
     elif args.model.upper()=='SETR':
-        model = setr.Setr(num_class=num_classes, dim=768, depth=3, heads=6, batch_size = args.batch_size, trans_img_size=32)
+        model = setr.Setr(num_class=num_classes, dim=1024, depth=3, heads=6, batch_size = args.batch_size, trans_img_size=512)
     elif args.model.upper()=='TransFCN8s':
         pass
     elif args.model.upper()=='FCN':
