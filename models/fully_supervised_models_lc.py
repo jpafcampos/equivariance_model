@@ -129,6 +129,7 @@ def main():
     # ------------
     
     if args.model.upper()=='ResViT':
+        print("chosen model, ResViT")
         resnet50 = models.resnet50(pretrained=True)
         resnet50_backbone = models._utils.IntermediateLayerGetter(resnet50, {'layer1': 'feat1', 'layer2': 'feat2', 'layer3': 'feat3', 'layer4': 'feat4'})
         model = resnet50ViT.ResViT(pretrained_net=resnet50_backbone, num_class=num_classes, dim=768, depth=3, heads=6, batch_size = args.batch_size, trans_img_size=32)
