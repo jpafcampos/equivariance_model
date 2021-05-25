@@ -19,10 +19,8 @@ sys.path.insert(1, '../utils')
 import utils as U
 import vit
 
-#resnet50 = models.resnet50(pretrained=True)
-#new_m = models._utils.IntermediateLayerGetter(resnet50, {'layer1': 'feat1', 'layer2': 'feat2', 'layer3': 'feat3', 'layer4': 'feat4'})
-#out = new_m(torch.rand(1, 3, 512, 512))
-#print(out['feat3'].size())
+
+
 
 class ResViT(nn.Module):
 
@@ -78,3 +76,10 @@ class ResViT(nn.Module):
         score = self.classifier(score)                    
 
         return score  # size=(N, n_class, x.H/1, x.W/1)                   
+
+#resnet50 = models.resnet50(pretrained=True)
+#new_m = models._utils.IntermediateLayerGetter(resnet50, {'layer1': 'feat1', 'layer2': 'feat2', 'layer3': 'feat3', 'layer4': 'feat4'})
+#model = ResViT(pretrained_net=new_m, num_class=4, dim=768, depth=3, heads=6, batch_size = 8, trans_img_size=32)
+#model.eval()
+#pred = model(torch.rand(8, 3, 512, 512))
+#print(pred.size())
