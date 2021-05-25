@@ -14,6 +14,7 @@ from argparse import ArgumentParser
 import torch.utils.data as tud
 import trans_fcn
 import resnet50ViT
+import setr
 
 #import fcn8s
 import fcn16s
@@ -138,8 +139,8 @@ def main():
         #model = models.segmentation.fcn_resnet101(pretrained=args.pretrained,num_classes=num_classes)
     elif args.model.upper()=='DLV3':
         model = models.segmentation.deeplabv3_resnet101(pretrained=args.pretrained,num_classes=num_classes)
-    elif args.model.upper()=='VIT':
-        pass
+    elif args.model.upper()=='SETR':
+        model = setr.Setr(num_class=num_classes, dim=768, depth=3, heads=6, batch_size = args.batch_size, trans_img_size=32)
     elif args.model.upper()=='TransFCN8s':
         pass
     elif args.model.upper()=='FCN':
