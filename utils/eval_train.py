@@ -117,17 +117,17 @@ def train_fully_supervised(model,n_epochs,train_loader,val_loader,criterion,opti
     accuracy_test = []
     model.to(device)
     for ep in range(n_epochs):
-        print("EPOCH",ep)
+        print("CURR EPOCH:",ep)
         model.train()
-        #state = step_train_supervised(model,train_loader=train_loader,criterion=criterion,\
-        #    optimizer=optimizer,device=device,num_classes=num_classes)
-        #iou = state.metrics['mean IoU']
-        #acc = state.metrics['accuracy']
-        #loss = state.metrics['CE Loss'] 
-        #loss_train.append(loss)
-        #iou_train.append(iou)
-        #accuracy_train.append(acc)
-        #print('TRAIN - EP:',ep,'iou:',iou,'Accuracy:',acc,'Loss CE',loss)
+        state = step_train_supervised(model,train_loader=train_loader,criterion=criterion,\
+            optimizer=optimizer,device=device,num_classes=num_classes)
+        iou = state.metrics['mean IoU']
+        acc = state.metrics['accuracy']
+        loss = state.metrics['CE Loss'] 
+        loss_train.append(loss)
+        iou_train.append(iou)
+        accuracy_train.append(acc)
+        print('TRAIN - EP:',ep,'iou:',iou,'Accuracy:',acc,'Loss CE',loss)
         if scheduler:
             lr_scheduler.step()
         #Eval model
