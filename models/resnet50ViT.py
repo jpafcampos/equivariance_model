@@ -67,7 +67,7 @@ class ResViT(nn.Module):
         #x4 = out_resnet['feat4']    #H/32  2048 channels
         
         x3 = self.transformer(x3)
-        x3 = torch.reshape(x3, (bs,self.dim,self.trans_img_size,self.trans_img_size))
+        x3 = torch.reshape(x3, (bs,self.trans_img_size,self.trans_img_size, self.dim))
         x3 = torch.transpose(x3, 1, 3)
         x3 = self.channel_reduction(x3)
 
