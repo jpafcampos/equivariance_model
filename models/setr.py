@@ -55,9 +55,10 @@ class Setr(nn.Module):
         self.up = nn.Upsample(scale_factor=2, mode='bilinear')
         self.classifier = nn.Conv2d(64, num_class, kernel_size=1)
 
-    def forward(self, x):        
+    def forward(self, x):   
+        bs = x.size(0)     
         score = self.transformer(x)
-        score = torch.reshape(score, (self.batch_size,self.dim, int(self.trans_img_size/16), int(self.trans_img_size/16)))
+        score = torch.reshape(score, (bs,self.dim, int(self.trans_img_size/16), int(self.trans_img_size/16)))
 
         score = self.up(self.bn1(self.relu(self.deconv1(score))))    
         score = self.up(self.bn2(self.relu(self.deconv2(score)))) 

@@ -59,6 +59,7 @@ class ResViT(nn.Module):
         self.classifier = nn.Conv2d(64, num_class, kernel_size=1)
 
     def forward(self, x):
+        bs = x.size(0)
         out_resnet = self.pretrained_net(x)
         #x1 = out_resnet['feat1']    #H/4   256 ch
         #x2 = out_resnet['feat2']    #H/8   512 ch
@@ -66,7 +67,8 @@ class ResViT(nn.Module):
         #x4 = out_resnet['feat4']    #H/32  2048 channels
         
         x3 = self.transformer(x3)
-        x3 = torch.reshape(x3, (self.batch_size,self.dim,self.trans_img_size,self.trans_img_size))
+        x3 = torch.reshape(x3, (bs,self.dim,self.trans_img_size,self.trans_img_size))
+        x3 = torch.transpose(x3, 1, 3)
         x3 = self.channel_reduction(x3)
 
         score = self.bn1(self.relu(self.deconv1(x3)))    
