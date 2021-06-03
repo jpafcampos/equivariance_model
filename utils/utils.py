@@ -14,6 +14,7 @@ import sys
 import os
 import random
 import torchvision.transforms.functional as TF
+from torchvision.transforms.functional import normalize
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
 from collections import OrderedDict
@@ -672,3 +673,39 @@ class IntermediateLayerGetter(nn.ModuleDict):
                 out_name = self.return_layers[name]
                 out[out_name] = x
         return out
+
+#HELPERS USED IN MIXED PRECISION TRAINING SCRIPT
+
+def denormalize(tensor, mean, std):
+    mean = np.array(mean)
+    std = np.array(std)
+
+    _mean = -mean/std
+    _std = 1/std
+    return normalize(tensor, _mean, _std)
+
+class Denormalize(object):
+    def __init__(self, mean, std):
+        mean = np.array(mean)
+        std = np.array(std)
+        self._mean = -mean/std
+        self._std = 1/std
+
+    def __call__(self, tensor):
+        if isinstance(tensor, np.ndarray):
+            return (tensor - self._mean.reshape(-1,1,1)) / self._std.reshape(-1,1,1)
+        return normalize(tensor, self._mean, self._std)
+
+def set_bn_momentum(model, momentum=0.1):
+    for m in model.modules():
+        if isinstance(m, nn.BatchNorm2d):
+            m.momentum = momentum
+
+def fix_bn(model):
+    for m in model.modules():
+        if isinstance(m, nn.BatchNorm2d):
+            m.eval()
+
+def mkdir(path):
+    if not os.path.exists(path):
+        os.mkdir(path)

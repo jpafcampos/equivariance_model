@@ -43,6 +43,7 @@ def main():
     parser.add_argument('--benchmark', default=False, type=U.str2bool, help="enable or disable backends.cudnn")
     
     # Model and eval
+    parser.add_argument('--mixed_precision', default = False, type=bool)
     parser.add_argument('--model', default='FCN', type=str,help="FCN or DLV3 model")
     parser.add_argument('--pretrained', default=False, type=U.str2bool,help="Use pretrained pytorch model")
     parser.add_argument('--eval_angle', default=True, type=U.str2bool,help=\
@@ -141,10 +142,10 @@ def main():
         model = models.segmentation.deeplabv3_resnet101(pretrained=args.pretrained,num_classes=num_classes)
     elif args.model.upper()=='SETR':
         model = setr.Setr(num_class=num_classes, dim=1024, depth=3, heads=6, batch_size = args.batch_size, trans_img_size=512)
-    elif args.model.upper()=='TransFCN8s':
+    elif args.model.upper()=='TRANSFCN8':
         pass
     elif args.model.upper()=='FCN':
-        pass
+        model = models.segmentation.fcn_resnet101(pretrained=args.pretrained,num_classes=num_classes)
     else:
         raise Exception('model must be "FCN", "DLV3", "RESVIT', "VIT (all upper case)")
     #model.to(device)
@@ -168,10 +169,13 @@ def main():
     torch.autograd.set_detect_anomaly(True)
     optimizer = torch.optim.SGD(model.parameters(),lr=args.learning_rate,momentum=args.moment,weight_decay=args.wd)
     
-    ev.train_fully_supervised(model=model,n_epochs=args.n_epochs,train_loader=dataloader_train,val_loader=dataloader_val,\
-        criterion=criterion,optimizer=optimizer,save_folder=save_dir,scheduler=args.scheduler,auto_lr=args.auto_lr,\
-            model_name=args.model_name,benchmark=args.benchmark, save_best=args.save_best,save_all_ep=args.save_all_ep,\
-                device=device,num_classes=num_classes)
+    if not args.mixed_precision:
+        ev.train_fully_supervised(model=model,n_epochs=args.n_epochs,train_loader=dataloader_train,val_loader=dataloader_val,\
+            criterion=criterion,optimizer=optimizer,save_folder=save_dir,scheduler=args.scheduler,auto_lr=args.auto_lr,\
+                model_name=args.model_name,benchmark=args.benchmark, save_best=args.save_best,save_all_ep=args.save_all_ep,\
+                    device=device,num_classes=num_classes)
+    else:
+        pass
 
 
 
