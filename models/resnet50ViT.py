@@ -66,8 +66,10 @@ class ResViT(nn.Module):
         x3 = out_resnet['feat3']    #H/16  1024 ch
         #x4 = out_resnet['feat4']    #H/32  2048 channels
         
+        img_size = x3.shape[-2:]   
+        
         x3 = self.transformer(x3)
-        x3 = torch.reshape(x3, (bs,self.trans_img_size,self.trans_img_size, self.dim))
+        x3 = torch.reshape(x3, (bs, img_size[1], img_size[0], self.dim))
         x3 = torch.transpose(x3, 1, 3)
         x3 = self.channel_reduction(x3)
 
@@ -77,7 +79,7 @@ class ResViT(nn.Module):
         score = self.bn4(self.relu(self.deconv4(score)))  
         score = self.classifier(score)                    
 
-        return score  # size=(N, n_class, x.H/1, x.W/1)                   
+        return score  # size=(N, n_class, x.H/1, x.W/1)                  
 
 #resnet50 = models.resnet50(pretrained=True)
 #new_m = models._utils.IntermediateLayerGetter(resnet50, {'layer1': 'feat1', 'layer2': 'feat2', 'layer3': 'feat3', 'layer4': 'feat4'})
