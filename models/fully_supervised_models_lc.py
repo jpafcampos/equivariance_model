@@ -18,8 +18,6 @@ import setr
 
 #import fcn8s
 import fcn16s
-#import fcn32s
-import vgg
 import fcn
 
 
