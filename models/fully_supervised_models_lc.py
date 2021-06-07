@@ -2,6 +2,7 @@ import torch
 from torchvision import models
 import torch.nn as nn
 import pytorch_lightning as pl
+from torch.utils.tensorboard import SummaryWriter
 from torch.nn import functional as F 
 import sys
 sys.path.insert(1, '../utils')
@@ -29,6 +30,7 @@ def main():
     # ------------
     parser = ArgumentParser()
 
+    parser.add_argument('--profiler', type=bool, default=False)
     # Learning parameters
     parser.add_argument('--auto_lr', type=U.str2bool, default=False,help="Auto lr finder")
     parser.add_argument('--learning_rate', type=float, default=10e-4)
@@ -166,8 +168,30 @@ def main():
     criterion = nn.CrossEntropyLoss(ignore_index=num_classes) # On ignore la classe border.
     torch.autograd.set_detect_anomaly(True)
     optimizer = torch.optim.SGD(model.parameters(),lr=args.learning_rate,momentum=args.moment,weight_decay=args.wd)
-    
-    if not args.mixed_precision:
+
+    if args.profiler:
+        with torch.profiler.profile(
+           schedule=torch.profiler.schedule(
+               wait=2,
+               warmup=2,
+               active=6,
+               repeat=1),
+           on_trace_ready=tensorboard_trace_handler,
+           with_stack=True
+)        as profiler:
+           for step, data in enumerate(dataloader_train, 0):
+               print("step:{}".format(step))
+               inputs, labels = data[0].to(device=device), data[1].to(device=device)
+
+               outputs = model(inputs)
+               loss = criterion(outputs, labels)
+
+               optimizer.zero_grad()
+               loss.backward()
+               optimizer.step()
+               profiler.step()
+
+    if not args.mixed_precision and not args.profiler:
         ev.train_fully_supervised(model=model,n_epochs=args.n_epochs,train_loader=dataloader_train,val_loader=dataloader_val,\
             criterion=criterion,optimizer=optimizer,save_folder=save_dir,scheduler=args.scheduler,auto_lr=args.auto_lr,\
                 model_name=args.model_name,benchmark=args.benchmark, save_best=args.save_best,save_all_ep=args.save_all_ep,\
