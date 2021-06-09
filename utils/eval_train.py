@@ -1,7 +1,9 @@
 #import ignite.distributed as idist
 from ignite.contrib.engines import common
 from ignite.contrib.handlers import ProgressBar
-from ignite.engine import Engine, Events, create_supervised_evaluator
+from ignite.engine import Engine, EventEnum, Events, create_supervised_evaluator
+from ignite.handlers import Timer
+from ignite.contrib.handlers import BasicTimeProfiler
 from ignite.metrics import Accuracy
 from ignite.metrics import ConfusionMatrix, mIoU,Accuracy,Loss
 import torch 
@@ -13,6 +15,11 @@ import get_datasets as gd
 from matplotlib import colors
 import os
 from torch_lr_finder import LRFinder
+import line_profiler
+import functools
+from collections import OrderedDict
+from typing import Any, Callable, Dict, List, Mapping, Sequence, Tuple, Union, cast
+
 ##############
 
 
@@ -21,11 +28,12 @@ from torch_lr_finder import LRFinder
 #                                           FULLY SUPERVISED TRAINING
 #--------------------------------------------------------------------------------------------------------------------------|
 ###########################################################################################################################|
+#@profile
 def step_train_supervised(model,train_loader,criterion,optimizer,device='cpu',num_classes=21):
     """
         A step of fully supervised segmentation model training.
     """
-
+    #@profile
     def train_function(engine, batch):
         optimizer.zero_grad()
         model.train()  
@@ -48,17 +56,27 @@ def step_train_supervised(model,train_loader,criterion,optimizer,device='cpu',nu
     #print(num_classes)
     
     train_engine = Engine(train_function)
+    profiler = BasicTimeProfiler()
+    profiler.attach(train_engine)
+    
+    @train_engine.on(Events.GET_BATCH_COMPLETED)
+    def log_intermediate_results():
+        profiler.print_results(profiler.get_results())
+
     cm = ConfusionMatrix(num_classes=num_classes)#,output_transform=output_transform)
     mIoU(cm).attach(train_engine, 'mean IoU')   
     Accuracy().attach(train_engine, "accuracy")
     Loss(loss_fn=nn.CrossEntropyLoss()).attach(train_engine, "CE Loss")
     state = train_engine.run(train_loader)
+    profiler.write_results('/users/a/araujofj/time_profiling.csv')
+
     #print("mIoU :",state.metrics['mean IoU'])
     #print("Accuracy :",state.metrics['accuracy'])
     #print("CE Loss :",state.metrics['CE Loss'])
     
     return state
-    
+
+#@profile
 def eval_model(model,val_loader,device='cpu',num_classes=21):
 
     def evaluate_function(engine, batch):
@@ -87,6 +105,7 @@ def eval_model(model,val_loader,device='cpu',num_classes=21):
     #print("CE Loss :",state.metrics['CE Loss'])
     
     return state
+#@profile
 def train_fully_supervised(model,n_epochs,train_loader,val_loader,criterion,optimizer,scheduler,auto_lr,\
         save_folder,model_name,benchmark=False,save_all_ep=True, save_best=False, device='cpu',num_classes=21):
     """

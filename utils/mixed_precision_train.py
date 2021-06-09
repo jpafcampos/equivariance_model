@@ -9,7 +9,11 @@ import os
 from torch_lr_finder import LRFinder
 import matplotlib as plt
 from PIL import Image
-from metrics import StreamSegMetrics
+import sys
+sys.path.insert(1, '../metrics')
+import stream_metrics as sm
+import line_profiler
+
 
 # -----------------------------------------------------
 # Trains model using mixed precision with pure Pytorch
@@ -35,6 +39,10 @@ def validate(model, loader, device, metrics, save_val_results = False):
             labels = labels.to(device, dtype=torch.long)
 
             outputs = model(images)
+            try:
+                outputs = outputs['out']
+            except:
+                pass
             preds = outputs.detach().max(dim=1)[1].cpu().numpy()
             targets = labels.cpu().numpy()
 
@@ -68,7 +76,7 @@ def validate(model, loader, device, metrics, save_val_results = False):
         score = metrics.get_results()
     return score
 
-
+#@profile
 def mixed_precision_train(model,n_epochs,train_loader,val_loader,criterion,optimizer,scheduler,auto_lr,\
         save_folder,model_name,benchmark=False,save_all_ep=True, save_best=False, save_val_results = False, device='cpu',num_classes=21):
     """
@@ -81,7 +89,7 @@ def mixed_precision_train(model,n_epochs,train_loader,val_loader,criterion,optim
     """
 
     #set metrics
-    metrics = StreamSegMetrics(num_classes)
+    metrics = sm.StreamSegMetrics(num_classes)
 
     torch.backends.cudnn.benchmark=benchmark
     
@@ -104,6 +112,7 @@ def mixed_precision_train(model,n_epochs,train_loader,val_loader,criterion,optim
     cur_itrs = 0
     interval_loss = 0
     train_losses = []
+    epoch_losses = []
     iou_train = []
     iou_test = []
     accuracy_train = []
@@ -114,58 +123,64 @@ def mixed_precision_train(model,n_epochs,train_loader,val_loader,criterion,optim
     for epoch in range(n_epochs):
         print("in epoch loop : ", epoch)
         epoch_loss = 0
+        cur_itrs = 0
+        
+        #--------- train step ---------------
         for (img, mask) in train_loader:
             cur_itrs += 1
 
-            img = img.to(device, dtype=torch.float16)
-            mask = mask.to(device, dtype=torch.long)
+            img = img.to(device)
+            mask = mask.to(device)
+
             # print("data loaded : ", i)
             optimizer.zero_grad()
             with torch.cuda.amp.autocast():
                 outputs = model(img)
+                try:
+                    outputs = outputs['out']
+                except:
+                    pass
                 loss = criterion(outputs, mask)
             
             
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
+
             np_loss = loss.detach().cpu().numpy()
             interval_loss += np_loss
-            # print("before forward")
-            mask_pred = model(img)
-            # print("after forward")
-            loss = criterion(mask_pred, mask)
-            loss.backward()
-            # print("backprop")
-            optimizer.step()
-            # print("step")
             epoch_loss += loss.item()
-            
             train_losses.append(loss.item())
-
-            #val step
-            if (cur_itrs) % 10 == 0:
-
-                print("validation...")
-                model.eval()
-                val_score = validate(model=model, loader=val_loader, device=device, metrics=metrics, save_val_results=save_val_results)
-                print(metrics.to_str(val_score))
-                
-                if val_score['Mean IoU'] > best_score:
-                    best_score = val_score['Mean IoU']
-                    #save ckpt
-                    save_model = model_name+'.pt'
-                    save = os.path.join(save_folder,save_model)
-                    torch.save({
-                    "cur_itrs": cur_itrs,
-                    "model_state": model.module.state_dict(),
-                    "optimizer_state": optimizer.state_dict(),
-                    "scheduler_state": scheduler.state_dict(),
-                    "best_score": best_score,
-                    }, save)
-
-                    print("Model saved as %s" % save_folder)
-
             
-            #back to train mode
-            model.train()
+            if scheduler:
+                lr_scheduler.step()
+            
+            if cur_itrs%200 == 0:
+                print(epoch, cur_itrs, loss.item()) 
+        
+        #--------- validation step ---------------
+        print("validation...")
+        model.eval()
+        val_score = validate(model=model, loader=val_loader, device=device, metrics=metrics, save_val_results=save_val_results)
+        print(metrics.to_str(val_score))
+        
+        if val_score['Mean IoU'] > best_score:
+            best_score = val_score['Mean IoU']
+            #save ckpt
+            save_model = model_name+'.pt'
+            save = os.path.join(save_folder,save_model)
+            #torch.save({
+            #"cur_itrs": cur_itrs,
+            #"model_state": model.state_dict(),
+            #"best_score": best_score,
+            #}, save)
+            torch.save(model,save)
+
+            print("Model saved in %s" % save_folder)
+        #back to train mode
+        model.train()
+        
+        epoch_losses.append(epoch_loss/len(train_loader))
+    
+    #end for epochs
+    U.save_curves(path=save_folder,loss_train=train_losses, epoch_losses=epoch_losses)

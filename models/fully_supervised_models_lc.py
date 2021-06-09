@@ -11,17 +11,20 @@ import my_datasets as mdset
 import utils as U
 import coco_utils as cu
 import eval_train as ev
+import mixed_precision_train as mp
 from argparse import ArgumentParser
 import torch.utils.data as tud
-import trans_fcn
 import resnet50ViT
 import setr
+import vit
+import TransFCN
 
 #import fcn8s
 import fcn16s
 import fcn
+import line_profiler
 
-
+##@profile
 def main():
     #torch.manual_seed(42)
 
@@ -29,8 +32,6 @@ def main():
     # args
     # ------------
     parser = ArgumentParser()
-
-    parser.add_argument('--profiler', type=bool, default=False)
     # Learning parameters
     parser.add_argument('--auto_lr', type=U.str2bool, default=False,help="Auto lr finder")
     parser.add_argument('--learning_rate', type=float, default=10e-4)
@@ -70,7 +71,7 @@ def main():
     parser.add_argument('--split_ratio', default=0.3, type=float, help="Amount of data we used for training")
     parser.add_argument('--dataroot_voc', default='/data/voc2012', type=str)
     parser.add_argument('--dataroot_sbd', default='/data/sbd', type=str)
-    parser.add_argument('--dataroot_landcover', default='/local/DEEPLEARNING/Landcover', type=str)
+    parser.add_argument('--dataroot_landcover', default='/local/DEEPLEARNING/landcover_v1', type=str)
     
     # Save parameters
     parser.add_argument('--model_name', type=str,help="what name to use for saving")
@@ -134,7 +135,7 @@ def main():
     if args.model.upper()=='RESVIT':
         resnet50 = models.resnet50(pretrained=True)
         resnet50_backbone = models._utils.IntermediateLayerGetter(resnet50, {'layer1': 'feat1', 'layer2': 'feat2', 'layer3': 'feat3', 'layer4': 'feat4'})
-        model = resnet50ViT.ResViT(pretrained_net=resnet50_backbone, num_class=num_classes, dim=768, depth=1, heads=6, batch_size = args.batch_size, trans_img_size=32)
+        model = resnet50ViT.ResViT(pretrained_net=resnet50_backbone, num_class=num_classes, dim=768, depth=1, heads=1, batch_size = args.batch_size, trans_img_size=32)
         print("created resvit model")
         #model = fcn16s.FCN16s(n_class= num_classes)
         #model = models.segmentation.fcn_resnet101(pretrained=args.pretrained,num_classes=num_classes)
@@ -142,10 +143,24 @@ def main():
         model = models.segmentation.deeplabv3_resnet101(pretrained=args.pretrained,num_classes=num_classes)
     elif args.model.upper()=='SETR':
         model = setr.Setr(num_class=num_classes, dim=1024, depth=3, heads=6, batch_size = args.batch_size, trans_img_size=512)
-    elif args.model.upper()=='TRANSFCN8':
-        pass
+    elif args.model.upper()=='TRANSFCN':
+        FCN = models.segmentation.fcn_resnet50(pretrained=True, progress=True, aux_loss=None)
+        backbone = nn.Sequential(*list(FCN.children())[:1])
+        transformer = vit.ViT(
+            image_size = 64,
+            patch_size = 1,
+            num_classes = 64, #not used
+            dim = 768,
+            depth = 1,    #number of encoders
+            heads = 1,    #number of heads in self attention
+            mlp_dim = 1024,   #hidden dimension in feedforward layer
+            channels = 512,
+            dropout = 0.1,
+            emb_dropout = 0.1
+        )
+        model = TransFCN.TransFCN(backbone, transformer, num_classes)
     elif args.model.upper()=='FCN':
-        model = models.segmentation.fcn_resnet101(pretrained=args.pretrained,num_classes=num_classes)
+        model = models.segmentation.fcn_resnet50(pretrained=args.pretrained,num_classes=num_classes)
     else:
         raise Exception('model must be "FCN", "DLV3", "RESVIT', "VIT (all upper case)")
     #model.to(device)
@@ -169,35 +184,15 @@ def main():
     torch.autograd.set_detect_anomaly(True)
     optimizer = torch.optim.SGD(model.parameters(),lr=args.learning_rate,momentum=args.moment,weight_decay=args.wd)
 
-    if args.profiler:
-        with torch.profiler.profile(
-           schedule=torch.profiler.schedule(
-               wait=2,
-               warmup=2,
-               active=6,
-               repeat=1),
-           on_trace_ready=tensorboard_trace_handler,
-           with_stack=True
-)        as profiler:
-           for step, data in enumerate(dataloader_train, 0):
-               print("step:{}".format(step))
-               inputs, labels = data[0].to(device=device), data[1].to(device=device)
-
-               outputs = model(inputs)
-               loss = criterion(outputs, labels)
-
-               optimizer.zero_grad()
-               loss.backward()
-               optimizer.step()
-               profiler.step()
-
-    if not args.mixed_precision and not args.profiler:
+    if not args.mixed_precision:
         ev.train_fully_supervised(model=model,n_epochs=args.n_epochs,train_loader=dataloader_train,val_loader=dataloader_val,\
             criterion=criterion,optimizer=optimizer,save_folder=save_dir,scheduler=args.scheduler,auto_lr=args.auto_lr,\
                 model_name=args.model_name,benchmark=args.benchmark, save_best=args.save_best,save_all_ep=args.save_all_ep,\
                     device=device,num_classes=num_classes)
     else:
-        pass
+        mp.mixed_precision_train(model=model,n_epochs=args.n_epochs,train_loader=dataloader_train,val_loader=dataloader_val,criterion=criterion,\
+            optimizer=optimizer,scheduler=args.scheduler,auto_lr=args.auto_lr, save_folder=save_dir,model_name=args.model_name,benchmark=False,save_all_ep=True,\
+                 save_best=False, save_val_results = False, device=device,num_classes=21)
 
 
 

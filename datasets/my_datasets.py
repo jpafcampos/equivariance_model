@@ -15,6 +15,7 @@ import random
 import shutil
 import numpy as np
 from typing import Any, Callable, Optional, Tuple
+import line_profiler
 
 
 
@@ -473,6 +474,7 @@ class SBDataset(VisionDataset):
 ###########################################################################################
 
 class LandscapeDataset(Dataset):
+    ##@profile
     def __init__(self,
                  dataroot,
                  image_set='trainval',
@@ -518,7 +520,7 @@ class LandscapeDataset(Dataset):
         split_f = os.path.join(dataroot, image_set.rstrip('\n') + '.txt')
         with open(os.path.join(split_f), "r") as f:
             self.file_names = [x.strip() for x in f.readlines()]
-
+    ###@profile
     def my_transform(self, image, mask):
         # Resize     
         if self.train and self.scale:
@@ -575,7 +577,7 @@ class LandscapeDataset(Dataset):
         mask = to_tensor_target_lc(mask)
         return image, mask
 
-
+    ##@profile
     def __getitem__(self, index):
         img = Image.open(os.path.join(self.root_img,self.file_names[index]+'.jpg')).convert('RGB')
         target = Image.open(os.path.join(self.root_img,self.file_names[index]+'_m.png'))

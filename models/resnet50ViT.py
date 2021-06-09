@@ -18,6 +18,7 @@ import sys
 sys.path.insert(1, '../utils')
 import utils as U
 import vit
+import line_profiler
 
 
 
@@ -57,7 +58,7 @@ class ResViT(nn.Module):
         self.deconv4 = nn.ConvTranspose2d(128, 64, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
         self.bn4     = nn.BatchNorm2d(64)
         self.classifier = nn.Conv2d(64, num_class, kernel_size=1)
-
+    #@profile
     def forward(self, x):
         bs = x.size(0)
         out_resnet = self.pretrained_net(x)
