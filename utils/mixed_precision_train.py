@@ -183,4 +183,6 @@ def mixed_precision_train(model,n_epochs,train_loader,val_loader,criterion,optim
         epoch_losses.append(epoch_loss/len(train_loader))
     
     #end for epochs
+    print("Best mean IoU found:")
+    print(best_score)
     U.save_curves(path=save_folder,loss_train=train_losses, epoch_losses=epoch_losses)

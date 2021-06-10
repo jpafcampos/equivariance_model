@@ -457,7 +457,7 @@ def get_cmap_landcover() -> colors.ListedColormap:
     """
         return a cmap for landcover dataset
     """
-    cmap_test = colors.ListedColormap(['black','blue','green'])
+    cmap_test = colors.ListedColormap(['black','blue','green', 'white'])
     return cmap_test
 
 def plot_pred_mask(pred,mask,cmap=None,iou=True):

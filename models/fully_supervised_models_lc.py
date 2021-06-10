@@ -35,6 +35,7 @@ def main():
     # Learning parameters
     parser.add_argument('--auto_lr', type=U.str2bool, default=False,help="Auto lr finder")
     parser.add_argument('--learning_rate', type=float, default=10e-4)
+    parser.add_argument('--multi_lr', type=bool, default=False,help="If true, uses different lr for backbone and decoder")
     parser.add_argument('--scheduler', type=U.str2bool, default=False)
     parser.add_argument('--wd', type=float, default=2e-4)
     parser.add_argument('--moment', type=float, default=0.9)
@@ -42,12 +43,18 @@ def main():
     parser.add_argument('--n_epochs', default=10, type=int)
     parser.add_argument('--iter_every', default=1, type=int,help="Accumulate compute graph for iter_size step")
     parser.add_argument('--benchmark', default=False, type=U.str2bool, help="enable or disable backends.cudnn")
-    
+
+    #Transformer parameters
+    parser.add_argument('--depth', type=int, default=1, help='Number of blocks')
+    parser.add_argument('--num_heads', type=int, default=1, help='Number of heads in a block')
+    parser.add_argument('--dim', type=int, default=768, help='Dimension to which patches are projected')
+    parser.add_argument('--mlp_dim', type=int, default=3072, help='Hidden dimension in feed forward layer')
     # Model and eval
+
     parser.add_argument('--mixed_precision', default = False, type=bool)
     parser.add_argument('--model', default='FCN', type=str,help="FCN or DLV3 model")
-    parser.add_argument('--pretrained', default=False, type=U.str2bool,help="Use pretrained pytorch model")
-    parser.add_argument('--eval_angle', default=True, type=U.str2bool,help=\
+    parser.add_argument('--pretrained', default=True, type=U.str2bool,help="Use pretrained pytorch model")
+    parser.add_argument('--eval_angle', default=False, type=U.str2bool,help=\
         "If true, it'll eval the model with different angle input size")
     
     
@@ -55,7 +62,7 @@ def main():
     parser.add_argument('--rotate', default=False, type=U.str2bool,help="Use random rotation as data augmentation")
     parser.add_argument('--pi_rotate', default=True, type=U.str2bool,help="Use only pi/2 rotation angle")
     parser.add_argument('--p_rotate', default=0.25, type=float,help="Probability of rotating the image during the training")
-    parser.add_argument('--scale', default=True, type=U.str2bool,help="Use scale as data augmentation")
+    parser.add_argument('--scale', default=False, type=U.str2bool,help="Use scale as data augmentation")
     parser.add_argument('--landcover', default=False, type=U.str2bool,\
          help="Use Landcover dataset instead of VOC and COCO")
     parser.add_argument('--size_img', default=512, type=int,help="Size of input images")
@@ -114,7 +121,7 @@ def main():
             rotate=args.rotate,pi_rotate=args.pi_rotate,p_rotate=args.p_rotate,size_img=size_img,size_crop=size_crop)
         test_dataset = mdset.LandscapeDataset(args.dataroot_landcover,image_set="test")
         print('Success load Landscape Dataset')
-        num_classes = 4
+        num_classes = 5
     
     split = args.split
     if split==True:
@@ -133,9 +140,9 @@ def main():
     print("chosen model:")
     print(args.model.upper())
     if args.model.upper()=='RESVIT':
-        resnet50 = models.resnet50(pretrained=True)
+        resnet50 = models.resnet50(pretrained=args.pretrained)
         resnet50_backbone = models._utils.IntermediateLayerGetter(resnet50, {'layer1': 'feat1', 'layer2': 'feat2', 'layer3': 'feat3', 'layer4': 'feat4'})
-        model = resnet50ViT.ResViT(pretrained_net=resnet50_backbone, num_class=num_classes, dim=768, depth=1, heads=1, batch_size = args.batch_size, trans_img_size=32)
+        model = resnet50ViT.ResViT(pretrained_net=resnet50_backbone, num_class=num_classes, dim=args.dim, depth=args.depth, heads=args.num_heads, mlp_dim=args.mlp_dim, batch_size = args.batch_size, trans_img_size=args.size_img//16)
         print("created resvit model")
         #model = fcn16s.FCN16s(n_class= num_classes)
         #model = models.segmentation.fcn_resnet101(pretrained=args.pretrained,num_classes=num_classes)
@@ -144,16 +151,16 @@ def main():
     elif args.model.upper()=='SETR':
         model = setr.Setr(num_class=num_classes, dim=1024, depth=3, heads=6, batch_size = args.batch_size, trans_img_size=512)
     elif args.model.upper()=='TRANSFCN':
-        FCN = models.segmentation.fcn_resnet50(pretrained=True, progress=True, aux_loss=None)
+        FCN = models.segmentation.fcn_resnet50(pretrained=args.pretrained, progress=True, aux_loss=None)
         backbone = nn.Sequential(*list(FCN.children())[:1])
         transformer = vit.ViT(
             image_size = 64,
             patch_size = 1,
             num_classes = 64, #not used
-            dim = 768,
-            depth = 1,    #number of encoders
-            heads = 1,    #number of heads in self attention
-            mlp_dim = 1024,   #hidden dimension in feedforward layer
+            dim = args.dim,
+            depth = args.depth,    #number of encoders
+            heads = args.num_heads,    #number of heads in self attention
+            mlp_dim = args.mlp_dim,   #hidden dimension in feedforward layer
             channels = 512,
             dropout = 0.1,
             emb_dropout = 0.1
@@ -161,6 +168,9 @@ def main():
         model = TransFCN.TransFCN(backbone, transformer, num_classes)
     elif args.model.upper()=='FCN':
         model = models.segmentation.fcn_resnet50(pretrained=args.pretrained,num_classes=num_classes)
+        if args.pretrained:
+            model.classifier[4] = nn.Conv2d(512, num_classes, 1, 1)
+            model.aux_classifier[4] = nn.Conv2d(256, num_classes, 1, 1)
     else:
         raise Exception('model must be "FCN", "DLV3", "RESVIT', "VIT (all upper case)")
     #model.to(device)
@@ -182,7 +192,15 @@ def main():
 
     criterion = nn.CrossEntropyLoss(ignore_index=num_classes) # On ignore la classe border.
     torch.autograd.set_detect_anomaly(True)
-    optimizer = torch.optim.SGD(model.parameters(),lr=args.learning_rate,momentum=args.moment,weight_decay=args.wd)
+
+    if args.multi_lr:
+        if args.model.upper()=='RESVIT':
+            optimizer = torch.optim.SGD([
+                {'params': model.pretrained_net.parameters(), 'lr': args.learning_rate/10}
+            ], lr=args.learning_rate,momentum=args.moment,weight_decay=args.wd)
+    else:
+        optimizer = torch.optim.SGD(model.parameters(),lr=args.learning_rate,momentum=args.moment,weight_decay=args.wd)
+
 
     if not args.mixed_precision:
         ev.train_fully_supervised(model=model,n_epochs=args.n_epochs,train_loader=dataloader_train,val_loader=dataloader_val,\

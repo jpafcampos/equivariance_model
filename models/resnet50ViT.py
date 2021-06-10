@@ -25,8 +25,9 @@ import line_profiler
 
 class ResViT(nn.Module):
 
-    def __init__(self, pretrained_net, num_class, dim, depth, heads, batch_size, trans_img_size):
+    def __init__(self, pretrained_net, num_class, dim, depth, heads, mlp_dim, batch_size, trans_img_size):
         super(ResViT, self).__init__()
+        self.pretrained_net = pretrained_net
         self.dim = dim
         self.depth = depth
         self.heads = heads
@@ -40,14 +41,13 @@ class ResViT(nn.Module):
             dim = dim,
             depth = depth,    #number of encoders
             heads = heads,    #number of heads in self attention
-            mlp_dim = 3072,   #hidden dimension in feedforward layer
+            mlp_dim = mlp_dim,   #hidden dimension in feedforward layer
             channels = 1024,
             dropout = 0.1,
             emb_dropout = 0.1
         )
         self.channel_reduction = nn.Conv2d(in_channels=dim, out_channels=1024, kernel_size=3, padding=1)
         self.n_class = num_class
-        self.pretrained_net = pretrained_net
         self.relu    = nn.ReLU(inplace=True)
         self.deconv1 = nn.ConvTranspose2d(1024, 512, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
         self.bn1     = nn.BatchNorm2d(512)
