@@ -31,7 +31,7 @@ VOC_CLASSES = ('background',  # always index 0
                    'motorbike', 'person', 'pottedplant',
                    'sheep', 'sofa', 'train', 'tvmonitor')
 
-LANDCOVER_CLASS = ('building','woodlands','water')
+LANDCOVER_CLASS = ('building','woodlands','water', 'road')
 
 NUM_CLASSES = len(VOC_CLASSES) + 1
 def get_voc_cst():

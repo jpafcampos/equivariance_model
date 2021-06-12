@@ -167,7 +167,7 @@ def main():
         )
         model = TransFCN.TransFCN(backbone, transformer, num_classes)
     elif args.model.upper()=='FCN':
-        model = models.segmentation.fcn_resnet50(pretrained=args.pretrained,num_classes=num_classes)
+        model = models.segmentation.fcn_resnet50(pretrained=args.pretrained)
         if args.pretrained:
             model.classifier[4] = nn.Conv2d(512, num_classes, 1, 1)
             model.aux_classifier[4] = nn.Conv2d(256, num_classes, 1, 1)
@@ -193,13 +193,7 @@ def main():
     criterion = nn.CrossEntropyLoss(ignore_index=num_classes) # On ignore la classe border.
     torch.autograd.set_detect_anomaly(True)
 
-    if args.multi_lr:
-        if args.model.upper()=='RESVIT':
-            optimizer = torch.optim.SGD([
-                {'params': model.pretrained_net.parameters(), 'lr': args.learning_rate/10}
-            ], lr=args.learning_rate,momentum=args.moment,weight_decay=args.wd)
-    else:
-        optimizer = torch.optim.SGD(model.parameters(),lr=args.learning_rate,momentum=args.moment,weight_decay=args.wd)
+    optimizer = torch.optim.SGD(model.parameters(),lr=args.learning_rate,momentum=args.moment,weight_decay=args.wd)
 
 
     if not args.mixed_precision:
