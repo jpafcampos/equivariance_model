@@ -37,7 +37,6 @@ def validate(model, loader, device, metrics, save_val_results = False):
             
             images = images.to(device, dtype=torch.float32)
             labels = labels.to(device, dtype=torch.long)
-
             outputs = model(images)
             try:
                 outputs = outputs['out']
@@ -163,7 +162,7 @@ def mixed_precision_train(model,n_epochs,train_loader,val_loader,criterion,optim
         model.eval()
         val_score = validate(model=model, loader=val_loader, device=device, metrics=metrics, save_val_results=save_val_results)
         print(metrics.to_str(val_score))
-        
+        iou_train.append(val_score['Mean IoU'])
         if val_score['Mean IoU'] > best_score:
             best_score = val_score['Mean IoU']
             #save ckpt
@@ -185,4 +184,4 @@ def mixed_precision_train(model,n_epochs,train_loader,val_loader,criterion,optim
     #end for epochs
     print("Best mean IoU found:")
     print(best_score)
-    U.save_curves(path=save_folder,loss_train=train_losses, epoch_losses=epoch_losses)
+    U.save_curves(path=save_folder,loss_train=train_losses, epoch_losses=epoch_losses, iou_train=iou_train)

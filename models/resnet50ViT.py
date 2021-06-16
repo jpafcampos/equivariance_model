@@ -25,7 +25,7 @@ import line_profiler
 
 class ResViT(nn.Module):
 
-    def __init__(self, pretrained_net, num_class, dim, depth, heads, mlp_dim, batch_size, trans_img_size):
+    def __init__(self, pretrained_net, num_class, dim, depth, heads, mlp_dim, batch_size, trans_img_size, feat):
         super(ResViT, self).__init__()
         self.pretrained_net = pretrained_net
         self.dim = dim
@@ -33,6 +33,9 @@ class ResViT(nn.Module):
         self.heads = heads
         self.batch_size = batch_size
         self.trans_img_size = trans_img_size
+        self.feat = feat
+        channels_dict = {'feat1':'256', 'feat2':'512', 'feat3':'1024', 'feat4': '2048'}
+        self.channels = int(channels_dict[feat])
         #Transformer unit (encoder)
         self.transformer = vit.ViT(
             image_size = trans_img_size,
@@ -42,42 +45,45 @@ class ResViT(nn.Module):
             depth = depth,    #number of encoders
             heads = heads,    #number of heads in self attention
             mlp_dim = mlp_dim,   #hidden dimension in feedforward layer
-            channels = 1024,
+            channels = self.channels,
             dropout = 0.1,
             emb_dropout = 0.1
         )
-        self.channel_reduction = nn.Conv2d(in_channels=dim, out_channels=1024, kernel_size=3, padding=1)
+        self.channel_reduction = nn.Conv2d(in_channels=dim, out_channels=self.channels, kernel_size=3, padding=1)
         self.n_class = num_class
         self.relu    = nn.ReLU(inplace=True)
-        self.deconv1 = nn.ConvTranspose2d(1024, 512, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
+        self.deconv1 = nn.ConvTranspose2d(self.channels, 512, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
         self.bn1     = nn.BatchNorm2d(512)
         self.deconv2 = nn.ConvTranspose2d(512, 256, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
         self.bn2     = nn.BatchNorm2d(256)
-        self.deconv3 = nn.ConvTranspose2d(256, 128, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
-        self.bn3     = nn.BatchNorm2d(128)
-        self.deconv4 = nn.ConvTranspose2d(128, 64, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
-        self.bn4     = nn.BatchNorm2d(64)
+        self.deconv3 = nn.ConvTranspose2d(256, 64, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
+        self.bn3     = nn.BatchNorm2d(64)
+        #self.deconv4 = nn.ConvTranspose2d(128, 64, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
+        #self.bn4     = nn.BatchNorm2d(64)
         self.classifier = nn.Conv2d(64, num_class, kernel_size=1)
     #@profile
     def forward(self, x):
         bs = x.size(0)
         out_resnet = self.pretrained_net(x)
+
         #x1 = out_resnet['feat1']    #H/4   256 ch
         #x2 = out_resnet['feat2']    #H/8   512 ch
-        x3 = out_resnet['feat3']    #H/16  1024 ch
+        #x3 = out_resnet['feat3']    #H/16  1024 ch
         #x4 = out_resnet['feat4']    #H/32  2048 channels
-        
-        img_size = x3.shape[-2:]   
-        
-        x3 = self.transformer(x3)
-        x3 = torch.reshape(x3, (bs, img_size[1], img_size[0], self.dim))
-        x3 = torch.transpose(x3, 1, 3)
-        x3 = self.channel_reduction(x3)
+        x = out_resnet[self.feat]
 
-        score = self.bn1(self.relu(self.deconv1(x3)))    
+        img_size = x.shape[-2:]   
+        
+        x = self.transformer(x)
+        x = torch.reshape(x, (bs, img_size[1], img_size[0], self.dim))
+        x = torch.transpose(x, 1, 3)
+
+        x = self.channel_reduction(x)
+
+        score = self.bn1(self.relu(self.deconv1(x)))    
         score = self.bn2(self.relu(self.deconv2(score))) 
         score = self.bn3(self.relu(self.deconv3(score)))
-        score = self.bn4(self.relu(self.deconv4(score)))  
+        #score = self.bn4(self.relu(self.deconv4(score)))  
         score = self.classifier(score)                    
 
         return score  # size=(N, n_class, x.H/1, x.W/1)                  

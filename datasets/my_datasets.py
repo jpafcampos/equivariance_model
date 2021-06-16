@@ -513,9 +513,10 @@ class LandscapeDataset(Dataset):
 
         ##
 
-        if image_set!= 'train' and image_set!='trainval' and image_set!='test':
+        if image_set!= 'train' and image_set!='trainval' and image_set!='test' and image_set!='val':
             raise Exception("image set should be 'train' 'trainval' or 'test',not",image_set)
         self.train = image_set == 'train' or image_set == 'trainval'
+        self.val = image_set == 'trainval' or image_set == 'val'
         self.root_img = os.path.join(dataroot,'output')
         split_f = os.path.join(dataroot, image_set.rstrip('\n') + '.txt')
         with open(os.path.join(split_f), "r") as f:
@@ -536,7 +537,7 @@ class LandscapeDataset(Dataset):
         image = resize(image)
         mask = resize(mask)
 
-        if self.train : 
+        if self.train or self.val: 
             # Random crop
             i, j, h, w = T.RandomCrop.get_params(
                 image, output_size=self.size_crop)
@@ -544,11 +545,11 @@ class LandscapeDataset(Dataset):
             mask = TF.crop(mask, i, j, h, w)
 
             # Random horizontal flipping
-            if random.random() > self.p:
+            if random.random() > self.p and not self.val:
                 image = TF.hflip(image)
                 mask = TF.hflip(mask)
                 
-            if self.rotate:
+            if self.rotate and not self.val:
                 if random.random() > self.p_rotate:
                     if self.pi_rotate:
                         angle = int(np.random.choice([90,180,270],1,replace=True)) #Only pi/2 rotation
