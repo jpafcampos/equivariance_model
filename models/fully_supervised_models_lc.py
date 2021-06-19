@@ -1,4 +1,5 @@
 import torch
+from torch.nn.modules import loss
 from torchvision import models
 import torch.nn as nn
 import pytorch_lightning as pl
@@ -218,9 +219,11 @@ def main():
     # Auto lr finding
     
     print(save_dir)
-
+    
+    loss_weights = torch.tensor([1.1, 78.45, 2.11, 10.37])
+    loss_weights.to(device)
     if args.landcover:
-        criterion = nn.CrossEntropyLoss(ignore_index=num_classes) # On ignore la classe border.
+        criterion = nn.CrossEntropyLoss(weight=torch.FloatTensor(loss_weights).to(device)) # On ignore la classe border.
     else:
         criterion = nn.CrossEntropyLoss()
     #torch.autograd.set_detect_anomaly(True)
