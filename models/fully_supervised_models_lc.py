@@ -175,7 +175,10 @@ def main():
         #model = fcn16s.FCN16s(n_class= num_classes)
         #model = models.segmentation.fcn_resnet101(pretrained=args.pretrained,num_classes=num_classes)
     elif args.model.upper()=='DLV3':
-        model = models.segmentation.deeplabv3_resnet101(pretrained=args.pretrained,num_classes=num_classes)
+        model = models.segmentation.deeplabv3_resnet101(pretrained=args.pretrained)
+        if args.pretrained:
+            model.classifier[4] = nn.Conv2d(256, num_classes, 1, 1)
+            model.aux_classifier[4] = nn.Conv2d(256, num_classes, 1, 1)
     elif args.model.upper()=='SETR':
         vit = timm.create_model('vit_base_patch16_384', pretrained=True)
         vit_backbone = nn.Sequential(*list(vit.children())[:5])

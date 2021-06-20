@@ -474,7 +474,6 @@ class SBDataset(VisionDataset):
 ###########################################################################################
 
 class LandscapeDataset(Dataset):
-    ##@profile
     def __init__(self,
                  dataroot,
                  image_set='trainval',
@@ -490,7 +489,8 @@ class LandscapeDataset(Dataset):
                  normalize = True,
                  pi_rotate = True,
                  fixing_rotate = False,
-                 angle_fix = 0):
+                 angle_fix = 0,
+                 angle_max = 360):
         super(LandscapeDataset).__init__()
 
         ## Transform
@@ -507,21 +507,22 @@ class LandscapeDataset(Dataset):
         self.pi_rotate = pi_rotate # Use only rotation 90,180,270 rotations
         self.fixing_rotate = fixing_rotate # For test time, allow to eval a model on the dataset with a certain angle
         self.angle_fix = angle_fix # The angle used for the fixing rotation
+        self.angle_max = angle_max
 
         if fixing_rotate: 
             self.rotate = False
 
         ##
 
-        if image_set!= 'train' and image_set!='trainval' and image_set!='test' and image_set!='val':
-            raise Exception("image set should be 'train' 'trainval' or 'test',not",image_set)
+        if image_set!= 'train' and image_set!='trainval' and image_set!='test' and image_set != 'val':
+            raise Exception("image set should be 'train' 'trainval' 'test' or 'val', not",image_set)
         self.train = image_set == 'train' or image_set == 'trainval'
-        self.val = image_set == 'trainval' or image_set == 'val'
+        self.val = image_set == 'val'
         self.root_img = os.path.join(dataroot,'output')
         split_f = os.path.join(dataroot, image_set.rstrip('\n') + '.txt')
         with open(os.path.join(split_f), "r") as f:
             self.file_names = [x.strip() for x in f.readlines()]
-    ###@profile
+
     def my_transform(self, image, mask):
         # Resize     
         if self.train and self.scale:
@@ -537,19 +538,8 @@ class LandscapeDataset(Dataset):
         image = resize(image)
         mask = resize(mask)
 
-        if self.train or self.val: 
-            # Random crop
-            i, j, h, w = T.RandomCrop.get_params(
-                image, output_size=self.size_crop)
-            image = TF.crop(image, i, j, h, w)
-            mask = TF.crop(mask, i, j, h, w)
-
-            # Random horizontal flipping
-            if random.random() > self.p and not self.val:
-                image = TF.hflip(image)
-                mask = TF.hflip(mask)
-                
-            if self.rotate and not self.val:
+        if self.train :
+            if self.rotate:
                 if random.random() > self.p_rotate:
                     if self.pi_rotate:
                         angle = int(np.random.choice([90,180,270],1,replace=True)) #Only pi/2 rotation
@@ -557,28 +547,59 @@ class LandscapeDataset(Dataset):
                         mask = TF.rotate(mask,angle=angle)
                     else:
                         if random.random() > 0.5:
-                            angle = np.random.randint(0,30)
-                            image = TF.rotate(image,angle=angle)
-                            mask = TF.rotate(mask,angle=angle)
+                            angle = np.random.randint(0,self.angle_max)
+                            image = TF.rotate(image,angle=angle,expand=True)
+                            mask = TF.rotate(mask,angle=angle,expand=True)
                         else:
-                            angle = np.random.randint(330,360)
-                            image = TF.rotate(image,angle=angle)
-                            mask = TF.rotate(mask,angle=angle)
+                            angle = np.random.randint(360-self.angle_max,360)
+                            image = TF.rotate(image,angle=angle,expand=True)
+                            mask = TF.rotate(mask,angle=angle,expand=True) 
+            # Random crop
+            i, j, h, w = T.RandomCrop.get_params(
+                image, output_size=self.size_crop)
+            image = TF.crop(image, i, j, h, w)
+            mask = TF.crop(mask, i, j, h, w)
 
-        # Apply a fixed rotation for test time:
-        if self.fixing_rotate:
-            image = TF.rotate(image,angle=self.angle_fix)
-            mask = TF.rotate(mask,angle=self.angle_fix)
-        
+            # Random horizontal flipping
+            if random.random() > self.p:
+                image = TF.hflip(image)
+                mask = TF.hflip(mask)
+
+            #adjust hue
+            image = TF.adjust_hue(image, 0.2)
+            mask = TF.adjust_hue(mask, 0.2)
+
+            #saturation
+            image = TF.adjust_saturation(image, random.uniform(0,2))
+
+            #brightness
+            image = TF.adjust_brightness(image, random.uniform(0.5, 2))
+
+            #sharpness    
+            image = TF.adjust_contrast(image, random.uniform(0.5, 2))
+
+        if self.val:
+            i, j, h, w = T.RandomCrop.get_params(
+                image, output_size=self.size_crop)
+            image = TF.crop(image, i, j, h, w)
+            mask = TF.crop(mask, i, j, h, w)
 
         # Transform to tensor
         image = TF.to_tensor(image)
+        mask = to_tensor_target_lc(mask)
+        
+        # Apply a fixed rotation for test time:
+        if self.fixing_rotate:
+            image = TF.rotate(image,angle=self.angle_fix,expand=True,fill=4)
+            mask = mask.unsqueeze(0)
+            mask = TF.rotate(mask,angle=self.angle_fix,expand=True,fill=4)
+            mask = mask.squeeze()
         if self.normalize:
             image = TF.normalize(image,self.mean,self.std)
-        mask = to_tensor_target_lc(mask)
+        
         return image, mask
 
-    ##@profile
+
     def __getitem__(self, index):
         img = Image.open(os.path.join(self.root_img,self.file_names[index]+'.jpg')).convert('RGB')
         target = Image.open(os.path.join(self.root_img,self.file_names[index]+'_m.png'))

@@ -125,11 +125,13 @@ def mixed_precision_train(model,n_epochs,train_loader,val_loader,criterion,optim
         cur_itrs = 0
         
         #--------- train step ---------------
+        print("train step")
         for (img, mask) in train_loader:
             cur_itrs += 1
-
+            print("new iteration")
             img = img.to(device)
             mask = mask.to(device)
+            print("loaded data to device")
 
             # print("data loaded : ", i)
             optimizer.zero_grad()
@@ -143,7 +145,9 @@ def mixed_precision_train(model,n_epochs,train_loader,val_loader,criterion,optim
             
             
             scaler.scale(loss).backward()
+            print("performed backward")
             scaler.step(optimizer)
+            print("optimizer step")
             scaler.update()
 
             np_loss = loss.detach().cpu().numpy()
@@ -166,14 +170,16 @@ def mixed_precision_train(model,n_epochs,train_loader,val_loader,criterion,optim
         if val_score['Mean IoU'] > best_score:
             best_score = val_score['Mean IoU']
             #save ckpt
-            save_model = model_name+'.pt'
+            save_model = model_name+'.tar'
             save = os.path.join(save_folder,save_model)
-            #torch.save({
-            #"cur_itrs": cur_itrs,
-            #"model_state": model.state_dict(),
-            #"best_score": best_score,
-            #}, save)
-            torch.save(model,save)
+            torch.save({
+            'epoch': epoch,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'loss': epoch_loss
+            }, save)
+            
+            #torch.save(model.state_dict(),save)
 
             print("Model saved in %s" % save_folder)
         #back to train mode
