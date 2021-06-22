@@ -76,7 +76,13 @@ class ResViT(nn.Module):
         
         x = self.transformer(x)
         x = torch.reshape(x, (bs, img_size[1], img_size[0], self.dim))
-        x = torch.transpose(x, 1, 3)
+        x = x.view(
+            x.size(0),
+            64,
+            64,
+            768
+        )
+        x = x.permute(0, 3, 1, 2).contiguous()
 
         x = self.channel_reduction(x)
 

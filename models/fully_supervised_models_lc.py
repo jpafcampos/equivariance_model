@@ -22,6 +22,7 @@ import resnet50ViT
 import setr
 import vit
 import TransFCN
+import resvit_timm
 import numpy as np
 
 #import fcn8s
@@ -175,6 +176,11 @@ def main():
         print("created resvit model")
         #model = fcn16s.FCN16s(n_class= num_classes)
         #model = models.segmentation.fcn_resnet101(pretrained=args.pretrained,num_classes=num_classes)
+    elif args.model.upper()=='RESVIT_TIMM':
+        vit = timm.models.vit_base_r50_s16_384(pretrained=True)
+        resvit_timm_backbone = nn.Sequential(*list(vit.children())[:-1])
+        model = resvit_timm.ResViT_timm(resvit_timm_backbone, num_class=num_classes)
+        print("created pre-trained hybrid vit model")
     elif args.model.upper()=='DLV3':
         model = models.segmentation.deeplabv3_resnet101(pretrained=args.pretrained)
         if args.pretrained:
@@ -225,8 +231,8 @@ def main():
     print(save_dir)
     
     if args.version == 0:
-        #loss_weights = torch.tensor([1.1, 78.45, 2.11, 10.37])
-        loss_weights = torch.tensor([5.42373264, 46.43293672, 1.64619769, 50.49834979])
+        loss_weights = torch.tensor([1.1, 78.45, 2.11, 10.37])
+        #loss_weights = torch.tensor([5.42373264, 46.43293672, 1.64619769, 50.49834979])
     else:
         loss_weights = torch.tensor([1.1, 63.60, 2.16, 10.56, 43.98])
 
