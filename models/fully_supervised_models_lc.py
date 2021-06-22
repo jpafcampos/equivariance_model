@@ -22,6 +22,7 @@ import resnet50ViT
 import setr
 import vit
 import TransFCN
+import multi_res_vit
 import resvit_timm
 import numpy as np
 
@@ -176,20 +177,29 @@ def main():
         print("created resvit model")
         #model = fcn16s.FCN16s(n_class= num_classes)
         #model = models.segmentation.fcn_resnet101(pretrained=args.pretrained,num_classes=num_classes)
+
     elif args.model.upper()=='RESVIT_TIMM':
         vit = timm.models.vit_base_r50_s16_384(pretrained=True)
         resvit_timm_backbone = nn.Sequential(*list(vit.children())[:-1])
         model = resvit_timm.ResViT_timm(resvit_timm_backbone, num_class=num_classes)
         print("created pre-trained hybrid vit model")
+
+    elif args.model.upper()=='MULTIRESVIT':
+        resnet50 = models.resnet50(pretrained=args.pretrained)
+        resnet50_backbone = models._utils.IntermediateLayerGetter(resnet50, {'layer1': 'feat1', 'layer2': 'feat2', 'layer3': 'feat3', 'layer4': 'feat4'})
+        model = multi_res_vit.MultiResViT(pretrained_net=resnet50_backbone, num_class=num_classes, dim=args.dim, depth=args.depth, heads=args.num_heads, mlp_dim=args.mlp_dim)
+    
     elif args.model.upper()=='DLV3':
         model = models.segmentation.deeplabv3_resnet101(pretrained=args.pretrained)
         if args.pretrained:
             model.classifier[4] = nn.Conv2d(256, num_classes, 1, 1)
             model.aux_classifier[4] = nn.Conv2d(256, num_classes, 1, 1)
+    
     elif args.model.upper()=='SETR':
         vit = timm.create_model('vit_base_patch16_384', pretrained=True)
         vit_backbone = nn.Sequential(*list(vit.children())[:5])
         model = setr.Setr(num_class=num_classes, vit_backbone=vit_backbone, bilinear = False)
+    
     elif args.model.upper()=='TRANSFCN':
         FCN = models.segmentation.fcn_resnet50(pretrained=args.pretrained, progress=True, aux_loss=None)
         backbone = nn.Sequential(*list(FCN.children())[:1])
@@ -206,6 +216,7 @@ def main():
             emb_dropout = 0.1
         )
         model = TransFCN.TransFCN(backbone, transformer, num_classes)
+    
     elif args.model.upper()=='FCN':
         model = models.segmentation.fcn_resnet50(pretrained=args.pretrained)
         if args.pretrained:
