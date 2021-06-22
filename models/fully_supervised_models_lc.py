@@ -107,7 +107,7 @@ def main():
     # ------------
 
     if args.version == 0:
-        dataroot_landcover = "/local/DEEPLEARNING/Landcover"
+        dataroot_landcover = "/local/DEEPLEARNING/landcover"
     else:
         dataroot_landcover = "/local/DEEPLEARNING/landcover_v1"
 
@@ -144,14 +144,15 @@ def main():
         loss_weights = torch.from_numpy(loss_weights).float().to('cuda')
     else:
         print('Loading Landscape Dataset')
+        if args.version == 1:
+            num_classes = 5
+        else: 
+            num_classes = 4
         train_dataset = mdset.LandscapeDataset(dataroot_landcover,image_set="train",\
             rotate=args.rotate,pi_rotate=args.pi_rotate,p_rotate=args.p_rotate,size_img=size_img,size_crop=size_crop)
         val_dataset = mdset.LandscapeDataset(dataroot_landcover,image_set="val", size_img=size_img, size_crop=size_crop)
         test_dataset = mdset.LandscapeDataset(dataroot_landcover,image_set="test")
         print('Success load Landscape Dataset')
-        if args.version == 1:
-            num_classes = 5
-        else: num_classes = 4
 
     # Print len datasets
     print("There is",len(train_dataset),"images for training and",len(val_dataset),"for validation")
@@ -223,12 +224,17 @@ def main():
     
     print(save_dir)
     
-    loss_weights = torch.tensor([1.1, 78.45, 2.11, 10.37])
+    if args.version == 0:
+        #loss_weights = torch.tensor([1.1, 78.45, 2.11, 10.37])
+        loss_weights = torch.tensor([5.42373264, 46.43293672, 1.64619769, 50.49834979])
+    else:
+        loss_weights = torch.tensor([1.1, 63.60, 2.16, 10.56, 43.98])
+
     loss_weights.to(device)
     if args.landcover:
-        criterion = nn.CrossEntropyLoss(weight=torch.FloatTensor(loss_weights).to(device)) # On ignore la classe border.
+        criterion = nn.CrossEntropyLoss(weight=torch.FloatTensor(loss_weights).to(device), ignore_index=255) # On ignore la classe border.
     else:
-        criterion = nn.CrossEntropyLoss()
+        criterion = nn.CrossEntropyLoss(ignore_index=255)
     #torch.autograd.set_detect_anomaly(True)
 
     optimizer = torch.optim.SGD(model.parameters(),lr=args.learning_rate,momentum=args.moment,weight_decay=args.wd)

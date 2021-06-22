@@ -481,6 +481,7 @@ class LandscapeDataset(Dataset):
                  std = [0.229, 0.224, 0.225],
                  size_img = (512,512),
                  size_crop = (480,480),
+                 fill_idx = 255,
                  scale_factor = (0.5,1.2),
                  p = 0.5,
                  p_rotate = 0.25,
@@ -498,6 +499,7 @@ class LandscapeDataset(Dataset):
         self.std = std 
         self.size_img = size_img
         self.size_crop = size_crop
+        self.fill_idx = fill_idx
         self.scale_factor = scale_factor
         self.p = p
         self.p_rotate = p_rotate
@@ -543,17 +545,17 @@ class LandscapeDataset(Dataset):
                 if random.random() > self.p_rotate:
                     if self.pi_rotate:
                         angle = int(np.random.choice([90,180,270],1,replace=True)) #Only pi/2 rotation
-                        image = TF.rotate(image,angle=angle)
-                        mask = TF.rotate(mask,angle=angle)
+                        image = TF.rotate(image,angle=angle,expand=True, fill=self.fill_idx)
+                        mask = TF.rotate(mask,angle=angle,expand=True, fill=self.fill_idx)
                     else:
                         if random.random() > 0.5:
                             angle = np.random.randint(0,self.angle_max)
-                            image = TF.rotate(image,angle=angle,expand=True)
-                            mask = TF.rotate(mask,angle=angle,expand=True)
+                            image = TF.rotate(image,angle=angle,expand=True, fill=self.fill_idx)
+                            mask = TF.rotate(mask,angle=angle,expand=True, fill=self.fill_idx)
                         else:
                             angle = np.random.randint(360-self.angle_max,360)
-                            image = TF.rotate(image,angle=angle,expand=True)
-                            mask = TF.rotate(mask,angle=angle,expand=True) 
+                            image = TF.rotate(image,angle=angle,expand=True, fill=self.fill_idx)
+                            mask = TF.rotate(mask,angle=angle,expand=True, fill=self.fill_idx) 
             # Random crop
             i, j, h, w = T.RandomCrop.get_params(
                 image, output_size=self.size_crop)
@@ -567,7 +569,6 @@ class LandscapeDataset(Dataset):
 
             #adjust hue
             image = TF.adjust_hue(image, 0.2)
-            mask = TF.adjust_hue(mask, 0.2)
 
             #saturation
             image = TF.adjust_saturation(image, random.uniform(0,2))
@@ -590,9 +591,9 @@ class LandscapeDataset(Dataset):
         
         # Apply a fixed rotation for test time:
         if self.fixing_rotate:
-            image = TF.rotate(image,angle=self.angle_fix,expand=True,fill=4)
+            image = TF.rotate(image,angle=self.angle_fix,expand=True,fill=fill_idx)
             mask = mask.unsqueeze(0)
-            mask = TF.rotate(mask,angle=self.angle_fix,expand=True,fill=4)
+            mask = TF.rotate(mask,angle=self.angle_fix,expand=True,fill=fill_idx)
             mask = mask.squeeze()
         if self.normalize:
             image = TF.normalize(image,self.mean,self.std)

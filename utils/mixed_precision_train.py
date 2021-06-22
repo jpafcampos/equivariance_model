@@ -125,13 +125,13 @@ def mixed_precision_train(model,n_epochs,train_loader,val_loader,criterion,optim
         cur_itrs = 0
         
         #--------- train step ---------------
-        print("train step")
+        #print("train step")
         for (img, mask) in train_loader:
             cur_itrs += 1
-            print("new iteration")
+            #print("new iteration")
             img = img.to(device)
             mask = mask.to(device)
-            print("loaded data to device")
+            #print("loaded data to device")
 
             # print("data loaded : ", i)
             optimizer.zero_grad()
@@ -145,9 +145,9 @@ def mixed_precision_train(model,n_epochs,train_loader,val_loader,criterion,optim
             
             
             scaler.scale(loss).backward()
-            print("performed backward")
+            #print("performed backward")
             scaler.step(optimizer)
-            print("optimizer step")
+            #print("optimizer step")
             scaler.update()
 
             np_loss = loss.detach().cpu().numpy()
