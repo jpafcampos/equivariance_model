@@ -73,6 +73,7 @@ def main():
     parser.add_argument('--landcover', default=False, type=U.str2bool,\
          help="Use Landcover dataset instead of VOC and COCO")
     parser.add_argument('--version', default=0, type=int, help="landcover data set version")
+    parser.add_argument('--lc_augs', default = False, type=bool, help="perform data augs as in the Landcover paper")
     parser.add_argument('--size_img', default=512, type=int,help="Size of input images")
     parser.add_argument('--size_crop', default=480, type=int,help="Size of crop image during training")
     
@@ -173,7 +174,7 @@ def main():
     if args.model.upper()=='RESVIT':
         resnet50 = models.resnet50(pretrained=args.pretrained)
         resnet50_backbone = models._utils.IntermediateLayerGetter(resnet50, {'layer1': 'feat1', 'layer2': 'feat2', 'layer3': 'feat3', 'layer4': 'feat4'})
-        model = resnet50ViT.ResViT(pretrained_net=resnet50_backbone, num_class=num_classes, dim=args.dim, depth=args.depth, heads=args.num_heads, mlp_dim=args.mlp_dim, batch_size = args.batch_size, trans_img_size=args.size_img//8, feat = "feat2")
+        model = resnet50ViT.ResViT(pretrained_net=resnet50_backbone, num_class=num_classes, dim=args.dim, depth=args.depth, heads=args.num_heads, mlp_dim=args.mlp_dim)
         print("created resvit model")
         #model = fcn16s.FCN16s(n_class= num_classes)
         #model = models.segmentation.fcn_resnet101(pretrained=args.pretrained,num_classes=num_classes)

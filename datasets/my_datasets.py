@@ -486,6 +486,7 @@ class LandscapeDataset(Dataset):
                  p = 0.5,
                  p_rotate = 0.25,
                  rotate = False,
+                 lc_augs = False, #perform hue, saturation and brightness changes
                  scale = True,
                  normalize = True,
                  pi_rotate = True,
@@ -504,6 +505,7 @@ class LandscapeDataset(Dataset):
         self.p = p
         self.p_rotate = p_rotate
         self.rotate = rotate
+        self.lc_augs = lc_augs
         self.scale = scale
         self.normalize = normalize # Use un-normalize image for plotting
         self.pi_rotate = pi_rotate # Use only rotation 90,180,270 rotations
@@ -567,17 +569,18 @@ class LandscapeDataset(Dataset):
                 image = TF.hflip(image)
                 mask = TF.hflip(mask)
 
-            #adjust hue
-            image = TF.adjust_hue(image, 0.2)
+            if self.lc_augs:
+                #adjust hue
+                image = TF.adjust_hue(image, 0.2)
 
-            #saturation
-            image = TF.adjust_saturation(image, random.uniform(0,2))
+                #saturation
+                image = TF.adjust_saturation(image, random.uniform(0,2))
 
-            #brightness
-            image = TF.adjust_brightness(image, random.uniform(0.5, 2))
+                #brightness
+                image = TF.adjust_brightness(image, random.uniform(0.5, 2))
 
-            #sharpness    
-            image = TF.adjust_contrast(image, random.uniform(0.5, 2))
+                #sharpness    
+                image = TF.adjust_contrast(image, random.uniform(0.5, 2))
 
         if self.val:
             i, j, h, w = T.RandomCrop.get_params(
