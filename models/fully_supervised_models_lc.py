@@ -21,7 +21,7 @@ import torch.utils.data as tud
 import resnet50ViT
 import setr
 import vit
-import TransFCN
+import transFCN
 import multi_res_vit
 import resvit_timm
 import numpy as np
@@ -53,7 +53,7 @@ def main():
 
     #Transformer parameters
     parser.add_argument('--depth', type=int, default=1, help='Number of blocks')
-    parser.add_argument('--num_heads', type=int, default=1, help='Number of heads in a block')
+    parser.add_argument('--num_heads', type=int, default=12, help='Number of heads in a block')
     parser.add_argument('--dim', type=int, default=768, help='Dimension to which patches are projected')
     parser.add_argument('--mlp_dim', type=int, default=3072, help='Hidden dimension in feed forward layer')
     # Model and eval
@@ -202,21 +202,9 @@ def main():
         model = setr.Setr(num_class=num_classes, vit_backbone=vit_backbone, bilinear = False)
     
     elif args.model.upper()=='TRANSFCN':
-        FCN = models.segmentation.fcn_resnet50(pretrained=args.pretrained, progress=True, aux_loss=None)
-        backbone = nn.Sequential(*list(FCN.children())[:1])
-        transformer = vit.ViT(
-            image_size = 64,
-            patch_size = 1,
-            num_classes = 64, #not used
-            dim = args.dim,
-            depth = args.depth,    #number of encoders
-            heads = args.num_heads,    #number of heads in self attention
-            mlp_dim = args.mlp_dim,   #hidden dimension in feedforward layer
-            channels = 512,
-            dropout = 0.1,
-            emb_dropout = 0.1
-        )
-        model = TransFCN.TransFCN(backbone, transformer, num_classes)
+        resnet50 = models.resnet50(pretrained=True, replace_stride_with_dilation=[False, True, True])
+        resnet50_backbone = models._utils.IntermediateLayerGetter(resnet50, {'layer1': 'feat1', 'layer2': 'feat2', 'layer3': 'feat3', 'layer4': 'feat4'})
+        model = transFCN.TransFCN(resnet50_backbone, num_class = num_classes, dim = args.dim, depth = args.depth, heads = args.num_heads, mlp_dim = args.mlp_dim)
     
     elif args.model.upper()=='FCN':
         model = models.segmentation.fcn_resnet50(pretrained=args.pretrained)
