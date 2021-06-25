@@ -19,6 +19,7 @@ import mixed_precision_train as mp
 from argparse import ArgumentParser
 import torch.utils.data as tud
 import resnet50ViT
+import resvit_dilation
 import setr
 import vit
 import transFCN
@@ -174,11 +175,16 @@ def main():
     if args.model.upper()=='RESVIT':
         resnet50 = models.resnet50(pretrained=args.pretrained)
         resnet50_backbone = models._utils.IntermediateLayerGetter(resnet50, {'layer1': 'feat1', 'layer2': 'feat2', 'layer3': 'feat3', 'layer4': 'feat4'})
-        model = resnet50ViT.ResViT(pretrained_net=resnet50_backbone, num_class=num_classes, dim=args.dim, depth=args.depth, heads=args.num_heads, mlp_dim=args.mlp_dim)
+        #model = resnet50ViT.ResViT(pretrained_net=resnet50_backbone, num_class=num_classes, dim=args.dim, depth=args.depth, heads=args.num_heads, mlp_dim=args.mlp_dim)
+        model = old_resvit.ResViT(pretrained_net=resnet50_backbone, num_class=num_classes, dim=args.dim, depth=args.depth, heads=args.num_heads)
         print("created resvit model")
-        #model = fcn16s.FCN16s(n_class= num_classes)
-        #model = models.segmentation.fcn_resnet101(pretrained=args.pretrained,num_classes=num_classes)
 
+    elif args.model.upper()=='RESVIT_DILATION':
+        resnet50_dilation = models.resnet50(replace_stride_with_dilation=[False, True, True])
+        backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer1': 'feat1', 'layer2': 'feat2', 'layer3': 'feat3', 'layer4': 'feat4'})
+        model = resvit_dilation.Resvit(backbone_dilation, num_class=num_classes)
+        print("created resvit with resnet50 backbone replacing stride with dilation")
+    
     elif args.model.upper()=='RESVIT_TIMM':
         vit = timm.models.vit_base_r50_s16_384(pretrained=True)
         resvit_timm_backbone = nn.Sequential(*list(vit.children())[:-1])
