@@ -21,9 +21,10 @@ import torch.utils.data as tud
 import resnet50ViT
 import setr
 import vit
-import TransFCN
 import multi_res_vit
 import resvit_timm
+import my_fcn
+import resvit_dilation
 import numpy as np
 import sys
 sys.path.insert(1, '../metrics')
@@ -34,6 +35,7 @@ import fcn16s
 import fcn
 import line_profiler
 
+model_name = "fcn"
 gpu = 1
 device = torch.device("cuda:"+str(gpu) if torch.cuda.is_available() else "cpu")
 print("device used:",device)
@@ -47,14 +49,29 @@ print('Success load Landscape Dataset')
 
 test_loader = torch.utils.data.DataLoader(test_dataset,num_workers=4,batch_size=6)
 
-#model = models.segmentation.fcn_resnet50(pretrained=True)
-#print(model)
-#model.classifier[4] = nn.Conv2d(512, num_classes, 1, 1)
-#model.aux_classifier[4] = nn.Conv2d(256, num_classes, 1, 1)
+if model_name == "fcn":
+    #model = models.segmentation.fcn_resnet50(pretrained=True)
+    #model.classifier[4] = nn.Conv2d(512, num_classes, 1, 1)
+    #model.aux_classifier[4] = nn.Conv2d(256, num_classes, 1, 1)
+    resnet50_dilation = models.resnet50(False, replace_stride_with_dilation=[False, True, True])
+    backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
+    model = my_fcn.FCN_(backbone_dilation, num_class=num_classes)
 
-model = torch.load("/users/a/araujofj/fcn_baseline_lc1.pt")
+elif model_name == "resvit":
+    resnet50_dilation = models.resnet50(pretrained=False, replace_stride_with_dilation=[False, True, True])
+    backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
+    model = resvit_dilation.Resvit(backbone_dilation, num_class=num_classes, heads=1)
+
+
+model_root = "/users/a/araujofj/data/save_model/FCN/15/my_fcn.tar"
+
+#model_root = "/users/a/araujofj/data/save_model/resvit/16/resvit_dilation.tar"
+checkpoint = torch.load(model_root)
+model.load_state_dict(checkpoint['model_state_dict'])
 model.to(device)
-#print(model)
+
+# !!! DONT FORGET TO SET MODEL TO EVAL MODE !!!
+model.eval()
 
 
 def validate(model, loader, device, metrics, save_val_results = False):

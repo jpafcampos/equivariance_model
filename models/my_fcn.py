@@ -18,28 +18,11 @@ import utils as U
 import vit
 import line_profiler
 
-class Resvit(nn.Module):
+class FCN_(nn.Module):
 
-    def __init__(self, backbone, num_class, dim=2048, depth=1, heads=8, mlp_dim=3072):
-        super(Resvit, self).__init__()
+    def __init__(self, backbone, num_class):
+        super(FCN_, self).__init__()
         self.backbone = backbone
-        self.dim = dim
-        self.heads = heads
-        self.dim_head = dim//heads
-        print("dim, heads, dim_head:", dim, heads, self.dim_head)
-        self.transformer = vit.ViT(
-            image_size = 64,
-            patch_size = 1,
-            num_classes = 64, #not used
-            dim = dim,
-            depth = depth,    #number of encoders
-            heads = heads,    #number of heads in self attention
-            mlp_dim = mlp_dim,   #hidden dimension in feedforward layer
-            channels = 2048,
-            dim_head = self.dim_head,
-            dropout = 0.1,
-            emb_dropout = 0.1
-        )
 
         self.num_class = num_class
 
@@ -61,19 +44,6 @@ class Resvit(nn.Module):
         #print('aqui')
         score = self.backbone(x)
         score = score['feat4']
-        #print(score.size())
-        img_size = score.shape[-2:]
-        score = self.transformer(score)
-        #print(img_size)
-        score = torch.reshape(score, (bs, img_size[1], img_size[0], self.dim))
-        score = score.view(
-            score.size(0),
-            64,
-            64,
-            self.dim
-        )
-        score = score.permute(0, 3, 1, 2).contiguous()
-        #print("score permute", score.size())
         score = self.bn1(self.relu(self.deconv1(score)))
         score = self.bn2(self.relu(self.deconv2(score))) 
         score = self.bn3(self.relu(self.deconv3(score)))

@@ -483,10 +483,11 @@ class LandscapeDataset(Dataset):
                  size_crop = (480,480),
                  fill_idx = 255,
                  scale_factor = (0.5,1.2),
-                 p = 0.5,
+                 p = 1,
                  p_rotate = 0.25,
                  rotate = False,
                  lc_augs = False, #perform hue, saturation and brightness changes
+                 crop_val = False,
                  scale = True,
                  normalize = True,
                  pi_rotate = True,
@@ -506,6 +507,7 @@ class LandscapeDataset(Dataset):
         self.p_rotate = p_rotate
         self.rotate = rotate
         self.lc_augs = lc_augs
+        self.crop_val = crop_val
         self.scale = scale
         self.normalize = normalize # Use un-normalize image for plotting
         self.pi_rotate = pi_rotate # Use only rotation 90,180,270 rotations
@@ -582,7 +584,7 @@ class LandscapeDataset(Dataset):
                 #sharpness    
                 image = TF.adjust_contrast(image, random.uniform(0.5, 2))
 
-        if self.val:
+        if self.val and self.crop_val:
             i, j, h, w = T.RandomCrop.get_params(
                 image, output_size=self.size_crop)
             image = TF.crop(image, i, j, h, w)

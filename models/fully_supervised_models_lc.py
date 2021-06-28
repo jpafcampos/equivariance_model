@@ -30,6 +30,7 @@ import numpy as np
 #import fcn8s
 import fcn16s
 import fcn
+import my_fcn
 import line_profiler
 
 ##@profile
@@ -43,7 +44,7 @@ def main():
     # Learning parameters
     parser.add_argument('--auto_lr', type=U.str2bool, default=False,help="Auto lr finder")
     parser.add_argument('--learning_rate', type=float, default=10e-4)
-    parser.add_argument('--multi_lr', type=bool, default=False,help="If true, uses different lr for backbone and decoder")
+    parser.add_argument('--multi_lr', type=U.str2bool, default=False,help="If true, uses different lr for backbone and decoder")
     parser.add_argument('--scheduler', type=U.str2bool, default=False)
     parser.add_argument('--wd', type=float, default=2e-4)
     parser.add_argument('--moment', type=float, default=0.9)
@@ -74,7 +75,7 @@ def main():
     parser.add_argument('--landcover', default=False, type=U.str2bool,\
          help="Use Landcover dataset instead of VOC and COCO")
     parser.add_argument('--version', default=0, type=int, help="landcover data set version")
-    parser.add_argument('--lc_augs', default = False, type=bool, help="perform data augs as in the Landcover paper")
+    parser.add_argument('--lc_augs', default = False, type=U.str2bool, help="perform data augs as in the Landcover paper")
     parser.add_argument('--size_img', default=512, type=int,help="Size of input images")
     parser.add_argument('--size_crop', default=480, type=int,help="Size of crop image during training")
     
@@ -90,6 +91,7 @@ def main():
     parser.add_argument('--dataroot_sbd', default='/data/sbd', type=str)
     #parser.add_argument('--dataroot_landcover', default='/local/DEEPLEARNING/landcover_v1', type=str)
     parser.add_argument('--dataroot_cs', default='/local/DEEPLEARNING/cityscapes', type=str)
+    parser.add_argument('--class_weights', default=True, type=U.str2bool)
 
     
     # Save parameters
@@ -173,6 +175,7 @@ def main():
     print("chosen model:")
     print(args.model.upper())
     if args.model.upper()=='RESVIT':
+        print("Pretrained backbone:", args.pretrained)
         resnet50 = models.resnet50(pretrained=args.pretrained)
         resnet50_backbone = models._utils.IntermediateLayerGetter(resnet50, {'layer1': 'feat1', 'layer2': 'feat2', 'layer3': 'feat3', 'layer4': 'feat4'})
         #model = resnet50ViT.ResViT(pretrained_net=resnet50_backbone, num_class=num_classes, dim=args.dim, depth=args.depth, heads=args.num_heads, mlp_dim=args.mlp_dim)
@@ -180,18 +183,21 @@ def main():
         print("created resvit model")
 
     elif args.model.upper()=='RESVIT_DILATION':
-        resnet50_dilation = models.resnet50(replace_stride_with_dilation=[False, True, True])
-        backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer1': 'feat1', 'layer2': 'feat2', 'layer3': 'feat3', 'layer4': 'feat4'})
-        model = resvit_dilation.Resvit(backbone_dilation, num_class=num_classes)
+        print("Pretrained backbone:", args.pretrained)
+        resnet50_dilation = models.resnet50(pretrained=True, replace_stride_with_dilation=[False, True, True])
+        backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
+        model = resvit_dilation.Resvit(backbone_dilation, num_class=num_classes, heads=args.num_heads)
         print("created resvit with resnet50 backbone replacing stride with dilation")
     
     elif args.model.upper()=='RESVIT_TIMM':
+        print("Pretrained backbone:", args.pretrained)
         vit = timm.models.vit_base_r50_s16_384(pretrained=True)
         resvit_timm_backbone = nn.Sequential(*list(vit.children())[:-1])
         model = resvit_timm.ResViT_timm(resvit_timm_backbone, num_class=num_classes)
         print("created pre-trained hybrid vit model")
 
     elif args.model.upper()=='MULTIRESVIT':
+        print("Pretrained backbone:", args.pretrained)
         resnet50 = models.resnet50(pretrained=args.pretrained)
         resnet50_backbone = models._utils.IntermediateLayerGetter(resnet50, {'layer1': 'feat1', 'layer2': 'feat2', 'layer3': 'feat3', 'layer4': 'feat4'})
         model = multi_res_vit.MultiResViT(pretrained_net=resnet50_backbone, num_class=num_classes, dim=args.dim, depth=args.depth, heads=args.num_heads, mlp_dim=args.mlp_dim)
@@ -213,10 +219,14 @@ def main():
         model = transFCN.TransFCN(resnet50_backbone, num_class = num_classes, dim = args.dim, depth = args.depth, heads = args.num_heads, mlp_dim = args.mlp_dim)
     
     elif args.model.upper()=='FCN':
-        model = models.segmentation.fcn_resnet50(pretrained=args.pretrained)
-        if args.pretrained:
-            model.classifier[4] = nn.Conv2d(512, num_classes, 1, 1)
-            model.aux_classifier[4] = nn.Conv2d(256, num_classes, 1, 1)
+        #model = models.segmentation.fcn_resnet50(pretrained=args.pretrained)
+        #if args.pretrained:
+        #    model.classifier[4] = nn.Conv2d(512, num_classes, 1, 1)
+        #    model.aux_classifier[4] = nn.Conv2d(256, num_classes, 1, 1)
+        print("Pretrained backbone:", args.pretrained)
+        resnet50_dilation = models.resnet50(pretrained=args.pretrained, replace_stride_with_dilation=[False, True, True])
+        backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
+        model = my_fcn.FCN_(backbone_dilation, num_class=num_classes)
     else:
         raise Exception('model must be "FCN", "DLV3", "RESVIT', "VIT (all upper case)")
     #model.to(device)
@@ -235,19 +245,25 @@ def main():
     # Auto lr finding
     
     print(save_dir)
-    
-    if args.version == 0:
-        loss_weights = torch.tensor([1.1, 78.45, 2.11, 10.37])
-        #loss_weights = torch.tensor([5.42373264, 46.43293672, 1.64619769, 50.49834979])
-    else:
-        loss_weights = torch.tensor([1.1, 63.60, 2.16, 10.56, 43.98])
+    print("class weights ", args.class_weights)
+    if args.class_weights:
+        print("creating class weights")
+        if args.version == 0:
+            loss_weights = torch.tensor([1.1, 78.45, 2.11, 10.37])
+            #loss_weights = torch.tensor([5.42373264, 46.43293672, 1.64619769, 50.49834979])
+        else:
+            loss_weights = torch.tensor([1.1, 63.60, 2.16, 10.56, 43.98])
 
-    loss_weights.to(device)
-    if args.landcover:
-        criterion = nn.CrossEntropyLoss(weight=torch.FloatTensor(loss_weights).to(device), ignore_index=255) # On ignore la classe border.
+        loss_weights.to(device)
+        if args.landcover:
+            criterion = nn.CrossEntropyLoss(weight=torch.FloatTensor(loss_weights).to(device), ignore_index=255) # On ignore la classe border.
+            print("using CrossEntropyLoss with class balancing")
+        else:
+            criterion = nn.CrossEntropyLoss(ignore_index=255)
+        #torch.autograd.set_detect_anomaly(True)
     else:
         criterion = nn.CrossEntropyLoss(ignore_index=255)
-    #torch.autograd.set_detect_anomaly(True)
+        print("using CrossEntropyLoss without weights")
 
     optimizer = torch.optim.SGD(model.parameters(),lr=args.learning_rate,momentum=args.moment,weight_decay=args.wd)
 
