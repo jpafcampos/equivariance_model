@@ -19,7 +19,7 @@ import mixed_precision_train as mp
 from argparse import ArgumentParser
 import torch.utils.data as tud
 import resnet50ViT
-import resvit_dilation
+import resvit_small
 import setr
 import vit
 import transFCN
@@ -27,11 +27,12 @@ import multi_res_vit
 import resvit_timm
 import numpy as np
 
-#import fcn8s
-import fcn16s
-import fcn
+import fcn_small
 import my_fcn
 import line_profiler
+
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 ##@profile
 def main():
@@ -52,12 +53,13 @@ def main():
     parser.add_argument('--n_epochs', default=10, type=int)
     parser.add_argument('--iter_every', default=1, type=int,help="Accumulate compute graph for iter_size step")
     parser.add_argument('--benchmark', default=False, type=U.str2bool, help="enable or disable backends.cudnn")
+    parser.add_argument('--bilinear_up', default=False, type=U.str2bool, help="if True creates original FCN, otherwise replaces the decoder")
 
     #Transformer parameters
     parser.add_argument('--depth', type=int, default=1, help='Number of blocks')
     parser.add_argument('--num_heads', type=int, default=12, help='Number of heads in a block')
-    parser.add_argument('--dim', type=int, default=768, help='Dimension to which patches are projected')
-    parser.add_argument('--mlp_dim', type=int, default=3072, help='Hidden dimension in feed forward layer')
+    parser.add_argument('--dim', type=int, default=512, help='Dimension to which patches are projected')
+    parser.add_argument('--mlp_dim', type=int, default=1024, help='Hidden dimension in feed forward layer')
     # Model and eval
 
     parser.add_argument('--mixed_precision', default = False, type=bool)
@@ -174,21 +176,22 @@ def main():
     # ------------
     print("chosen model:")
     print(args.model.upper())
-    if args.model.upper()=='RESVIT':
-        print("Pretrained backbone:", args.pretrained)
-        resnet50 = models.resnet50(pretrained=args.pretrained)
-        resnet50_backbone = models._utils.IntermediateLayerGetter(resnet50, {'layer1': 'feat1', 'layer2': 'feat2', 'layer3': 'feat3', 'layer4': 'feat4'})
-        #model = resnet50ViT.ResViT(pretrained_net=resnet50_backbone, num_class=num_classes, dim=args.dim, depth=args.depth, heads=args.num_heads, mlp_dim=args.mlp_dim)
-        model = old_resvit.ResViT(pretrained_net=resnet50_backbone, num_class=num_classes, dim=args.dim, depth=args.depth, heads=args.num_heads)
-        print("created resvit model")
-
-    elif args.model.upper()=='RESVIT_DILATION':
+    if args.model.upper()=='RESVIT_SMALL':
         print("Pretrained backbone:", args.pretrained)
         resnet50_dilation = models.resnet50(pretrained=True, replace_stride_with_dilation=[False, True, True])
         backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
-        model = resvit_dilation.Resvit(backbone_dilation, num_class=num_classes, heads=args.num_heads)
+        model = resvit_small.Resvit(backbone=backbone_dilation, num_class=num_classes, dim=args.dim, depth=args.depth, heads=args.num_heads, mlp_dim=args.mlp_dim)
+        print("created resvit small model")
+        print("Dim, depth, heads and MLP dim: ", args.dim, args.depth, args.num_heads, args.mlp_dim)
+
+    elif args.model.upper()=='RESVIT':
+        print("Pretrained backbone:", args.pretrained)
+        resnet50_dilation = models.resnet50(pretrained=True, replace_stride_with_dilation=[False, True, True])
+        backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
+        model = resnet50ViT.Resvit(backbone_dilation, num_class=num_classes, heads=args.num_heads, mlp_dim=args.mlp_dim)
         print("created resvit with resnet50 backbone replacing stride with dilation")
-    
+        print("Dim, depth, heads and MLP dim: ", args.dim, args.depth, args.num_heads, args.mlp_dim)
+
     elif args.model.upper()=='RESVIT_TIMM':
         print("Pretrained backbone:", args.pretrained)
         vit = timm.models.vit_base_r50_s16_384(pretrained=True)
@@ -196,12 +199,6 @@ def main():
         model = resvit_timm.ResViT_timm(resvit_timm_backbone, num_class=num_classes)
         print("created pre-trained hybrid vit model")
 
-    elif args.model.upper()=='MULTIRESVIT':
-        print("Pretrained backbone:", args.pretrained)
-        resnet50 = models.resnet50(pretrained=args.pretrained)
-        resnet50_backbone = models._utils.IntermediateLayerGetter(resnet50, {'layer1': 'feat1', 'layer2': 'feat2', 'layer3': 'feat3', 'layer4': 'feat4'})
-        model = multi_res_vit.MultiResViT(pretrained_net=resnet50_backbone, num_class=num_classes, dim=args.dim, depth=args.depth, heads=args.num_heads, mlp_dim=args.mlp_dim)
-    
     elif args.model.upper()=='DLV3':
         model = models.segmentation.deeplabv3_resnet101(pretrained=args.pretrained)
         if args.pretrained:
@@ -212,24 +209,27 @@ def main():
         vit = timm.create_model('vit_base_patch16_384', pretrained=True)
         vit_backbone = nn.Sequential(*list(vit.children())[:5])
         model = setr.Setr(num_class=num_classes, vit_backbone=vit_backbone, bilinear = False)
-    
-    elif args.model.upper()=='TRANSFCN':
-        resnet50 = models.resnet50(pretrained=True, replace_stride_with_dilation=[False, True, True])
-        resnet50_backbone = models._utils.IntermediateLayerGetter(resnet50, {'layer1': 'feat1', 'layer2': 'feat2', 'layer3': 'feat3', 'layer4': 'feat4'})
-        model = transFCN.TransFCN(resnet50_backbone, num_class = num_classes, dim = args.dim, depth = args.depth, heads = args.num_heads, mlp_dim = args.mlp_dim)
-    
+
     elif args.model.upper()=='FCN':
-        #model = models.segmentation.fcn_resnet50(pretrained=args.pretrained)
-        #if args.pretrained:
-        #    model.classifier[4] = nn.Conv2d(512, num_classes, 1, 1)
-        #    model.aux_classifier[4] = nn.Conv2d(256, num_classes, 1, 1)
-        print("Pretrained backbone:", args.pretrained)
-        resnet50_dilation = models.resnet50(pretrained=args.pretrained, replace_stride_with_dilation=[False, True, True])
-        backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
-        model = my_fcn.FCN_(backbone_dilation, num_class=num_classes)
+        if args.bilinear_up:
+            model = models.segmentation.fcn_resnet50(pretrained=args.pretrained)
+            if args.pretrained:
+                model.classifier[4] = nn.Conv2d(512, num_classes, 1, 1)
+                model.aux_classifier[4] = nn.Conv2d(256, num_classes, 1, 1)
+            print("Pretrained backbone:", args.pretrained)
+        else:
+            resnet50_dilation = models.resnet50(pretrained=args.pretrained, replace_stride_with_dilation=[False, True, True])
+            backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
+            model = fcn_small.FCN_(backbone_dilation, num_class=num_classes, dim=512)
+            print("created small FCN model")
     else:
-        raise Exception('model must be "FCN", "DLV3", "RESVIT', "VIT (all upper case)")
+        raise Exception('model not found')
+    print("number of params")
+    print(count_parameters(model))
     #model.to(device)
+
+    #while(1):
+    #    a = 1
 
     
     # ------------
@@ -249,10 +249,10 @@ def main():
     if args.class_weights:
         print("creating class weights")
         if args.version == 0:
-            loss_weights = torch.tensor([1.1, 78.45, 2.11, 10.37])
-            #loss_weights = torch.tensor([5.42373264, 46.43293672, 1.64619769, 50.49834979])
+            #loss_weights = torch.tensor([1.1, 78.45, 2.11, 10.37])
+            loss_weights = torch.tensor([5.42373264, 46.43293672, 1.64619769, 50.49834979])
         else:
-            loss_weights = torch.tensor([1.1, 63.60, 2.16, 10.56, 43.98])
+            loss_weights = torch.tensor([1.1, 53.71, 1.84, 9.00, 37.20])
 
         loss_weights.to(device)
         if args.landcover:

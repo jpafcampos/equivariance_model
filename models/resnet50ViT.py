@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import os.path as osp
 import copy
 import torch
@@ -20,19 +18,15 @@ import utils as U
 import vit
 import line_profiler
 
+class Resvit(nn.Module):
 
-
-
-class ResViT(nn.Module):
-
-    def __init__(self, pretrained_net, num_class, dim, depth, heads, mlp_dim):
-        super(ResViT, self).__init__()
-        self.pretrained_net = pretrained_net
+    def __init__(self, backbone, num_class, dim=2048, depth=1, heads=8, mlp_dim=3072):
+        super(Resvit, self).__init__()
+        self.backbone = backbone
         self.dim = dim
-        self.depth = depth
         self.heads = heads
-
-        #Transformer unit (encoder)
+        self.dim_head = dim//heads
+        print("dim, heads, dim_head:", dim, heads, self.dim_head)
         self.transformer = vit.ViT(
             image_size = 64,
             patch_size = 1,
@@ -41,51 +35,48 @@ class ResViT(nn.Module):
             depth = depth,    #number of encoders
             heads = heads,    #number of heads in self attention
             mlp_dim = mlp_dim,   #hidden dimension in feedforward layer
-            channels = 512,
+            channels = 2048,
+            dim_head = self.dim_head,
             dropout = 0.1,
             emb_dropout = 0.1
         )
-        self.proj = nn.Conv2d(in_channels=dim, out_channels=1024, kernel_size=3, padding=1)
-        self.n_class = num_class
+
+        self.num_class = num_class
+
         self.relu    = nn.ReLU(inplace=True)
-        self.deconv1 = nn.ConvTranspose2d(1024, 512, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
+        self.deconv1 = nn.ConvTranspose2d(2048, 512, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
         self.bn1     = nn.BatchNorm2d(512)
-        self.deconv2 = nn.ConvTranspose2d(512, 256, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
-        self.bn2     = nn.BatchNorm2d(256)
-        self.deconv3 = nn.ConvTranspose2d(256, 64, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
-        self.bn3     = nn.BatchNorm2d(64)
-        #self.deconv4 = nn.ConvTranspose2d(128, 64, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
-        #self.bn4     = nn.BatchNorm2d(64)
-        self.classifier = nn.Conv2d(64, num_class, kernel_size=1)
-    #@profile
+        self.deconv2 = nn.ConvTranspose2d(512, 128, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
+        self.bn2     = nn.BatchNorm2d(128)
+        self.deconv3 = nn.ConvTranspose2d(128, 32, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
+        self.bn3     = nn.BatchNorm2d(32)
+
+        self.classifier = nn.Conv2d(32, num_class, kernel_size=1)
+
+
     def forward(self, x):
+
+        input_shape = x.shape[-2:] 
         bs = x.size(0)
-        out_resnet = self.pretrained_net(x)
-
-        #x1 = out_resnet['feat1']    #H/4   256 ch
-        #x2 = out_resnet['feat2']    #H/8   512 ch
-        #x3 = out_resnet['feat3']    #H/16  1024 ch
-        #x4 = out_resnet['feat4']    #H/32  2048 channels
-        x = out_resnet['feat2']
-
-        img_size = x.shape[-2:]   
-        
-        x = self.transformer(x)
-        x = torch.reshape(x, (bs, img_size[1], img_size[0], self.dim))
-        x = x.view(
-            x.size(0),
+        #print('aqui')
+        score = self.backbone(x)
+        score = score['feat4']
+        #print(score.size())
+        img_size = score.shape[-2:]
+        score = self.transformer(score)
+        #print(img_size)
+        score = torch.reshape(score, (bs, img_size[1], img_size[0], self.dim))
+        score = score.view(
+            score.size(0),
             64,
             64,
-            768
+            self.dim
         )
-        x = x.permute(0, 3, 1, 2).contiguous()
-
-        x = self.proj(x)
-
-        score = self.bn1(self.relu(self.deconv1(x)))    
+        score = score.permute(0, 3, 1, 2).contiguous()
+        #print("score permute", score.size())
+        score = self.bn1(self.relu(self.deconv1(score)))
         score = self.bn2(self.relu(self.deconv2(score))) 
         score = self.bn3(self.relu(self.deconv3(score)))
-        #score = self.bn4(self.relu(self.deconv4(score)))  
-        score = self.classifier(score)                    
+        score = self.classifier(score)     
 
-        return score  # size=(N, n_class, x.H/1, x.W/1)                  
+        return score   

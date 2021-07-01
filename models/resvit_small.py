@@ -18,15 +18,15 @@ import utils as U
 import vit
 import line_profiler
 
+
 class Resvit(nn.Module):
 
-    def __init__(self, backbone, num_class, dim=2048, depth=1, heads=8, mlp_dim=3072):
+    def __init__(self, backbone, num_class, dim, depth, heads, mlp_dim):
         super(Resvit, self).__init__()
         self.backbone = backbone
         self.dim = dim
         self.heads = heads
         self.dim_head = dim//heads
-        print("dim, heads, dim_head:", dim, heads, self.dim_head)
         self.transformer = vit.ViT(
             image_size = 64,
             patch_size = 1,
@@ -35,7 +35,7 @@ class Resvit(nn.Module):
             depth = depth,    #number of encoders
             heads = heads,    #number of heads in self attention
             mlp_dim = mlp_dim,   #hidden dimension in feedforward layer
-            channels = 2048,
+            channels = dim,
             dim_head = self.dim_head,
             dropout = 0.1,
             emb_dropout = 0.1
@@ -43,28 +43,27 @@ class Resvit(nn.Module):
 
         self.num_class = num_class
 
+        self.proj    = nn.Conv2d(in_channels=2048, out_channels=dim, kernel_size=3, padding=1)
         self.relu    = nn.ReLU(inplace=True)
-        self.deconv1 = nn.ConvTranspose2d(2048, 512, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
-        self.bn1     = nn.BatchNorm2d(512)
-        self.deconv2 = nn.ConvTranspose2d(512, 128, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
+        self.deconv1 = nn.ConvTranspose2d(dim, 256, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
+        self.bn1     = nn.BatchNorm2d(256)
+        self.deconv2 = nn.ConvTranspose2d(256, 128, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
         self.bn2     = nn.BatchNorm2d(128)
-        self.deconv3 = nn.ConvTranspose2d(128, 32, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
-        self.bn3     = nn.BatchNorm2d(32)
+        self.deconv3 = nn.ConvTranspose2d(128, 64, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
+        self.bn3     = nn.BatchNorm2d(64)
 
-        self.classifier = nn.Conv2d(32, num_class, kernel_size=1)
+        self.classifier = nn.Conv2d(64, num_class, kernel_size=1)
 
 
     def forward(self, x):
 
         input_shape = x.shape[-2:] 
         bs = x.size(0)
-        #print('aqui')
         score = self.backbone(x)
         score = score['feat4']
-        #print(score.size())
         img_size = score.shape[-2:]
+        score = self.proj(score)
         score = self.transformer(score)
-        #print(img_size)
         score = torch.reshape(score, (bs, img_size[1], img_size[0], self.dim))
         score = score.view(
             score.size(0),
@@ -73,10 +72,10 @@ class Resvit(nn.Module):
             self.dim
         )
         score = score.permute(0, 3, 1, 2).contiguous()
-        #print("score permute", score.size())
         score = self.bn1(self.relu(self.deconv1(score)))
         score = self.bn2(self.relu(self.deconv2(score))) 
         score = self.bn3(self.relu(self.deconv3(score)))
         score = self.classifier(score)     
 
-        return score   
+        return score
+

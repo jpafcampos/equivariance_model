@@ -24,7 +24,6 @@ import vit
 import multi_res_vit
 import resvit_timm
 import my_fcn
-import resvit_dilation
 import numpy as np
 import sys
 sys.path.insert(1, '../metrics')
@@ -35,7 +34,7 @@ import fcn16s
 import fcn
 import line_profiler
 
-model_name = "fcn"
+model_name = "resvit"
 gpu = 1
 device = torch.device("cuda:"+str(gpu) if torch.cuda.is_available() else "cpu")
 print("device used:",device)
@@ -45,9 +44,10 @@ dataroot_landcover = "/local/DEEPLEARNING/landcover_v1"
 
 print('Loading Landscape Dataset')
 test_dataset = mdset.LandscapeDataset(dataroot_landcover,image_set="test")
-print('Success load Landscape Dataset')
+print('Success load Landscape Dataset, '+ str(len(test_dataset))+ ' images found')
 
-test_loader = torch.utils.data.DataLoader(test_dataset,num_workers=4,batch_size=6)
+test_loader = torch.utils.data.DataLoader(test_dataset,num_workers=4,batch_size=1)
+print("test loader created")
 
 if model_name == "fcn":
     #model = models.segmentation.fcn_resnet50(pretrained=True)
@@ -60,15 +60,17 @@ if model_name == "fcn":
 elif model_name == "resvit":
     resnet50_dilation = models.resnet50(pretrained=False, replace_stride_with_dilation=[False, True, True])
     backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
-    model = resvit_dilation.Resvit(backbone_dilation, num_class=num_classes, heads=1)
+    model = resnet50ViT.Resvit(backbone_dilation, num_class=num_classes, heads=2)
 
 
-model_root = "/users/a/araujofj/data/save_model/FCN/15/my_fcn.tar"
+#model_root = "/users/a/araujofj/data/save_model/FCN/15/my_fcn.tar"
 
-#model_root = "/users/a/araujofj/data/save_model/resvit/16/resvit_dilation.tar"
+model_root = "/users/a/araujofj/data/save_model/resvit/17/resvit_dilation.tar"
 checkpoint = torch.load(model_root)
 model.load_state_dict(checkpoint['model_state_dict'])
+print("loaded state dict")
 model.to(device)
+print("model to device")
 
 # !!! DONT FORGET TO SET MODEL TO EVAL MODE !!!
 model.eval()
