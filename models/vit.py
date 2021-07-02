@@ -117,9 +117,6 @@ class ViT(nn.Module):
 
         self.transformer = Transformer(dim, depth, heads, dim_head, mlp_dim, dropout)
 
-        self.pool = pool
-        self.to_latent = nn.Identity()
-
 
     def forward(self, img):
         x = self.to_patch_embedding(img)
