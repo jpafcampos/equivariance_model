@@ -76,7 +76,7 @@ def validate(model, loader, device, metrics, save_val_results = False):
     return score
 
 #@profile
-def mixed_precision_train(model,n_epochs,train_loader,val_loader,criterion,optimizer,scheduler,auto_lr,\
+def mixed_precision_train(model,n_epochs,train_loader,val_loader,test_loader,criterion,optimizer,scheduler,auto_lr,\
         save_folder,model_name,benchmark=False,save_all_ep=True, save_best=False, save_val_results = False, device='cpu',num_classes=21):
     """
         A complete training of fully supervised model. 
@@ -89,6 +89,7 @@ def mixed_precision_train(model,n_epochs,train_loader,val_loader,criterion,optim
 
     #set metrics
     metrics = sm.StreamSegMetrics(num_classes)
+    train_metrics = sm.StreamSegMetrics(num_classes)
 
     torch.backends.cudnn.benchmark=benchmark
     
@@ -98,9 +99,11 @@ def mixed_precision_train(model,n_epochs,train_loader,val_loader,criterion,optim
         lr_finder.range_test(train_loader,start_lr=10e-5, end_lr=10, num_iter=100)
     
     if scheduler:
-        lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
-        optimizer,
-        lambda x: (1 - x / (len(train_loader) * n_epochs)) ** 0.9)
+        #lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
+        #optimizer,
+        #lambda x: (1 - x / (len(train_loader) * n_epochs)) ** 0.9)
+        #lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=90, gamma=0.1)
+        lr_scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=0.001, max_lr=0.01)
 
     #define scaler for mixed precision
     scaler = torch.cuda.amp.GradScaler()
@@ -113,6 +116,7 @@ def mixed_precision_train(model,n_epochs,train_loader,val_loader,criterion,optim
     train_losses = []
     epoch_losses = []
     iou_train = []
+    iou_val = []
     iou_test = []
     accuracy_train = []
     accuracy_test = []
@@ -123,7 +127,7 @@ def mixed_precision_train(model,n_epochs,train_loader,val_loader,criterion,optim
         print("in epoch loop : ", epoch)
         epoch_loss = 0
         cur_itrs = 0
-        
+
         #--------- train step ---------------
         #print("train step")
         for (img, mask) in train_loader:
@@ -157,6 +161,7 @@ def mixed_precision_train(model,n_epochs,train_loader,val_loader,criterion,optim
             
             if scheduler:
                 lr_scheduler.step()
+                #print(lr_scheduler.get_last_lr())
             
             if cur_itrs%200 == 0:
                 print(epoch, cur_itrs, loss.item()) 
@@ -166,7 +171,7 @@ def mixed_precision_train(model,n_epochs,train_loader,val_loader,criterion,optim
         model.eval()
         val_score = validate(model=model, loader=val_loader, device=device, metrics=metrics, save_val_results=save_val_results)
         print(metrics.to_str(val_score))
-        iou_train.append(val_score['Mean IoU'])
+        iou_val.append(val_score['Mean IoU'])
         if val_score['Mean IoU'] > best_score:
             best_score = val_score['Mean IoU']
             #save ckpt
@@ -182,6 +187,18 @@ def mixed_precision_train(model,n_epochs,train_loader,val_loader,criterion,optim
             #torch.save(model.state_dict(),save)
 
             print("Model saved in %s" % save_folder)
+        
+        if epoch % 50 == 0:
+            model.eval()
+            score_on_train_set = validate(model=model, loader=train_loader, device=device, metrics=train_metrics, save_val_results=False)
+            print("Score on train set: ")
+            print(metrics.to_str(score_on_train_set))
+        
+        #if scheduler:
+        #    lr_scheduler.step()
+        #    print("learning rate:")
+        #    print(lr_scheduler.get_last_lr())
+
         #back to train mode
         model.train()
         
@@ -190,4 +207,16 @@ def mixed_precision_train(model,n_epochs,train_loader,val_loader,criterion,optim
     #end for epochs
     print("Best mean IoU found:")
     print(best_score)
-    U.save_curves(path=save_folder,loss_train=train_losses, epoch_losses=epoch_losses, iou_train=iou_train)
+    U.save_curves(path=save_folder,loss_train=train_losses, epoch_losses=epoch_losses, iou_train=iou_val)
+    print("calculating performance on test set")
+    metrics_test = sm.StreamSegMetrics(num_classes)
+    model.eval()
+    score = validate(model, test_loader, device, metrics_test)
+    print(metrics.to_str(score))
+
+    plt.figure(figsize=(20,10))
+    plt.plot(train_loss_history)
+    plt.xlabel("Time")
+    plt.ylabel("Loss")
+    plt.title("Loss function evolution")
+    plt.savefig(save_folder+'_loss_train.png')

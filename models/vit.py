@@ -80,14 +80,20 @@ class Attention(nn.Module):
         return self.to_out(out)
 
 class Transformer(nn.Module):
-    def __init__(self, dim, depth, heads, dim_head, mlp_dim, dropout = 0.):
+    def __init__(self, dim, depth, heads, dim_head, mlp_dim, dropout = 0., ff=True):
         super().__init__()
         self.layers = nn.ModuleList([])
         for _ in range(depth):
-            self.layers.append(nn.ModuleList([
-                PreNorm(dim, Attention(dim, heads = heads, dim_head = dim_head, dropout = dropout)),
-                PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
-            ]))
+            if ff:
+                self.layers.append(nn.ModuleList([
+                    PreNorm(dim, Attention(dim, heads = heads, dim_head = dim_head, dropout = dropout)),
+                    PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
+                ]))
+            else:
+                self.layers.append(nn.ModuleList([
+                    PreNorm(dim, Attention(dim, heads = heads, dim_head = dim_head, dropout = dropout)),
+                    nn.Identity()
+                ]))
     def forward(self, x):
         for attn, ff in self.layers:
             x = attn(x) + x
@@ -95,7 +101,7 @@ class Transformer(nn.Module):
         return x
 
 class ViT(nn.Module):
-    def __init__(self, *, image_size, patch_size, num_classes, dim, depth, heads, mlp_dim, pool = 'cls', channels = 3, dim_head = 64, dropout = 0., emb_dropout = 0.):
+    def __init__(self, *, image_size, patch_size, num_classes, dim, depth, heads, mlp_dim, pool = 'cls', channels = 3, dim_head = 64, dropout = 0., emb_dropout = 0., ff=True):
         super().__init__()
         image_height, image_width = pair(image_size)
         patch_height, patch_width = pair(patch_size)
@@ -115,7 +121,7 @@ class ViT(nn.Module):
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
         self.dropout = nn.Dropout(emb_dropout)
 
-        self.transformer = Transformer(dim, depth, heads, dim_head, mlp_dim, dropout)
+        self.transformer = Transformer(dim, depth, heads, dim_head, mlp_dim, dropout, ff = ff)
 
 
     def forward(self, img):

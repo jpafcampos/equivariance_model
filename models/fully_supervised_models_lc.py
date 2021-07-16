@@ -9,6 +9,8 @@ import timm
 import sys
 sys.path.insert(1, '../utils')
 sys.path.insert(1, '../datasets')
+sys.path.insert(1, '../metrics')
+import stream_metrics as sm
 import my_datasets as mdset
 import cityscapes as cs
 import utils as U
@@ -60,6 +62,7 @@ def main():
     parser.add_argument('--num_heads', type=int, default=12, help='Number of heads in a block')
     parser.add_argument('--dim', type=int, default=512, help='Dimension to which patches are projected')
     parser.add_argument('--mlp_dim', type=int, default=1024, help='Hidden dimension in feed forward layer')
+    parser.add_argument('--ff', type=U.str2bool, default=True, help='Whether to use feed forward layer in att block')
     # Model and eval
 
     parser.add_argument('--mixed_precision', default = False, type=bool)
@@ -169,6 +172,8 @@ def main():
         pin_memory=args.pm,shuffle=True,drop_last=True)#,collate_fn=U.my_collate)
     dataloader_val = torch.utils.data.DataLoader(val_dataset,num_workers=args.nw,pin_memory=args.pm,\
         batch_size=args.batch_size)
+    dataloader_test = torch.utils.data.DataLoader(test_dataset,num_workers=args.nw,pin_memory=args.pm,\
+        batch_size=args.batch_size)
 
     
     # ------------
@@ -180,9 +185,10 @@ def main():
         print("Pretrained backbone:", args.pretrained)
         resnet50_dilation = models.resnet50(pretrained=True, replace_stride_with_dilation=[False, True, True])
         backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
-        model = resvit_small.Resvit(backbone=backbone_dilation, num_class=num_classes, dim=args.dim, depth=args.depth, heads=args.num_heads, mlp_dim=args.mlp_dim)
+        model = resvit_small.Resvit(backbone=backbone_dilation, num_class=num_classes, dim=args.dim, depth=args.depth, heads=args.num_heads, mlp_dim=args.mlp_dim, ff=args.ff)
         print("created resvit small model")
         print("Dim, depth, heads and MLP dim: ", args.dim, args.depth, args.num_heads, args.mlp_dim)
+        print("Feed Forward:", args.ff)
 
     elif args.model.upper()=='RESVIT':
         print("Pretrained backbone:", args.pretrained)
@@ -220,7 +226,7 @@ def main():
         else:
             resnet50_dilation = models.resnet50(pretrained=args.pretrained, replace_stride_with_dilation=[False, True, True])
             backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
-            model = fcn_small.FCN_(backbone_dilation, num_class=num_classes, dim=512)
+            model = fcn_small.FCN_(backbone_dilation, num_class=num_classes, dim=args.dim)
             print("created small FCN model")
     else:
         raise Exception('model not found')
@@ -266,6 +272,7 @@ def main():
         print("using CrossEntropyLoss without weights")
 
     optimizer = torch.optim.SGD(model.parameters(),lr=args.learning_rate,momentum=args.moment,weight_decay=args.wd)
+    #optimizer = torch.optim.Adam(model.parameters(),lr=args.learning_rate, weight_decay=args.wd)
 
 
     if not args.mixed_precision:
@@ -274,7 +281,7 @@ def main():
                 model_name=args.model_name,benchmark=args.benchmark, save_best=args.save_best,save_all_ep=args.save_all_ep,\
                     device=device,num_classes=num_classes)
     else:
-        mp.mixed_precision_train(model=model,n_epochs=args.n_epochs,train_loader=dataloader_train,val_loader=dataloader_val,criterion=criterion,\
+        mp.mixed_precision_train(model=model,n_epochs=args.n_epochs,train_loader=dataloader_train,val_loader=dataloader_val,test_loader=dataloader_test,criterion=criterion,\
             optimizer=optimizer,scheduler=args.scheduler,auto_lr=args.auto_lr, save_folder=save_dir,model_name=args.model_name,benchmark=False,save_all_ep=True,\
                  save_best=False, save_val_results = False, device=device,num_classes=num_classes)
 

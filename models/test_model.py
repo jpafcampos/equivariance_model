@@ -19,6 +19,7 @@ import mixed_precision_train as mp
 from argparse import ArgumentParser
 import torch.utils.data as tud
 import resnet50ViT
+import resvit_small
 import setr
 import vit
 import multi_res_vit
@@ -29,13 +30,12 @@ import sys
 sys.path.insert(1, '../metrics')
 import stream_metrics as sm
 
-#import fcn8s
-import fcn16s
-import fcn
+
 import line_profiler
+import fcn_small
 
 model_name = "resvit"
-gpu = 1
+gpu = 0
 device = torch.device("cuda:"+str(gpu) if torch.cuda.is_available() else "cpu")
 print("device used:",device)
 
@@ -57,15 +57,28 @@ if model_name == "fcn":
     backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
     model = my_fcn.FCN_(backbone_dilation, num_class=num_classes)
 
-elif model_name == "resvit":
+elif model_name == "fcn_small":
     resnet50_dilation = models.resnet50(pretrained=False, replace_stride_with_dilation=[False, True, True])
     backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
-    model = resnet50ViT.Resvit(backbone_dilation, num_class=num_classes, heads=2)
+    model = fcn_small.FCN_(backbone_dilation, num_class=num_classes, dim=768)
+
+elif model_name == "resvit":
+    resnet50_dilation = models.resnet50(pretrained=True, replace_stride_with_dilation=[False, True, True])
+    backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
+    model = resvit_small.Resvit(backbone=backbone_dilation, num_class=num_classes, dim=768, depth=1, heads=1, mlp_dim=3072, ff=True)
+        
+    #resnet50_dilation = models.resnet50(pretrained=False, replace_stride_with_dilation=[False, True, True])
+    #backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
+    #model = resnet50ViT.Resvit(backbone_dilation, num_class=num_classes, heads=2)
 
 
+#model_root = "/users/a/araujofj/data/save_model/FCN/22/small_fcn.tar"  #fcn small
+#model_root = "/users/a/araujofj/data/save_model/resvit/55/resvit_dilation.tar" #bigger lr
 #model_root = "/users/a/araujofj/data/save_model/FCN/15/my_fcn.tar"
+#model_root = "/users/a/araujofj/data/save_model/resvit/17/resvit_dilation.tar"
+model_root = "/users/a/araujofj/data/save_model/FCN/34/small_fcn.tar" #best FCN
+model_root = "/users/a/araujofj/data/save_model/resvit/67/resvit_dilation.tar" #cyclic lr
 
-model_root = "/users/a/araujofj/data/save_model/resvit/17/resvit_dilation.tar"
 checkpoint = torch.load(model_root)
 model.load_state_dict(checkpoint['model_state_dict'])
 print("loaded state dict")

@@ -152,3 +152,15 @@ saved_model/
 #utils_on_gpu
 #utils_on_gpu/*
 model/.cache/
+
+*.png
+.png
+
+*.json
+.json
+
+models/data
+models/runs
+models/tb.py
+
+configs/

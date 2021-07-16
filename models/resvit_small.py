@@ -21,7 +21,7 @@ import line_profiler
 
 class Resvit(nn.Module):
 
-    def __init__(self, backbone, num_class, dim, depth, heads, mlp_dim):
+    def __init__(self, backbone, num_class, dim, depth, heads, mlp_dim, ff=True):
         super(Resvit, self).__init__()
         self.backbone = backbone
         self.dim = dim
@@ -38,7 +38,8 @@ class Resvit(nn.Module):
             channels = dim,
             dim_head = self.dim_head,
             dropout = 0.1,
-            emb_dropout = 0.1
+            emb_dropout = 0.1,
+            ff = ff
         )
 
         self.num_class = num_class
