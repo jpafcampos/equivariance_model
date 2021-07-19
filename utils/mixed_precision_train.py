@@ -159,7 +159,7 @@ def mixed_precision_train(model,n_epochs,train_loader,val_loader,test_loader,cri
             epoch_loss += loss.item()
             train_losses.append(loss.item())
             
-            if scheduler:
+            if scheduler: #cyclic 
                 lr_scheduler.step()
                 #print(lr_scheduler.get_last_lr())
             
@@ -194,7 +194,7 @@ def mixed_precision_train(model,n_epochs,train_loader,val_loader,test_loader,cri
             print("Score on train set: ")
             print(metrics.to_str(score_on_train_set))
         
-        #if scheduler:
+        #if scheduler: #step scheduler
         #    lr_scheduler.step()
         #    print("learning rate:")
         #    print(lr_scheduler.get_last_lr())
