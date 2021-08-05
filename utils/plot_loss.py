@@ -3,7 +3,8 @@ import os
 from os.path import isfile,join
 import numpy as np
 
-path = "/users/a/araujofj/data/save_model/resvit/66/"
+path = "/users/a/araujofj/data/save_model/resvit/75/"
+#path = "/users/a/araujofj/data/save_model/FCN/34"
 def plot_loss_metrics(folder,model_name):
     l_npy = [f for f in os.listdir(folder) if isfile(join(folder,f)) and f.endswith(".npy")] # Load all numpy file in the best folder
     for f in l_npy:
@@ -17,7 +18,7 @@ def plot_loss_metrics(folder,model_name):
         plt.savefig('./'+f+'.png')
 
 
-plot_loss_metrics(path,"resvit")
+plot_loss_metrics(path,"hybrid vit, Cityscapes")
 
 #plt.figure(figsize=(20,10))
 #plt.plot(train_loss_history)

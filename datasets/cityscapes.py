@@ -4,6 +4,7 @@ from collections import namedtuple
 
 import torch
 import torch.utils.data as data
+import PIL
 from PIL import Image
 import numpy as np
 

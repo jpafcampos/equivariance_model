@@ -20,9 +20,6 @@ import utils as U
 import vit
 import line_profiler
 
-
-
-
 class MultiResViT(nn.Module):
 
     def __init__(self, pretrained_net, num_class, dim, depth, heads, mlp_dim):
@@ -31,23 +28,27 @@ class MultiResViT(nn.Module):
         self.dim = dim
         self.depth = depth
         self.heads = heads
+        self.dim_head = dim//heads
         #Transformer unit (encoder)
+        
         self.transformer = vit.ViT(
-            image_size = 32,
+            image_size = 64,
             patch_size = 1,
             num_classes = 64, #not used
             dim = dim,
             depth = depth,    #number of encoders
             heads = heads,    #number of heads in self attention
             mlp_dim = mlp_dim,   #hidden dimension in feedforward layer
-            channels = 1024,
+            channels = dim,
+            dim_head = self.dim_head,
             dropout = 0.1,
             emb_dropout = 0.1
         )
 
         self.n_class = num_class
         self.relu    = nn.ReLU(inplace=True)
-        self.deconv1 = nn.ConvTranspose2d(768, 512, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
+        self.proj    = nn.Conv2d(in_channels=2048, out_channels=dim, kernel_size=3, padding=1)
+        self.deconv1 = nn.ConvTranspose2d(1024, 512, kernel_size=3, padding=1)
         self.bn1     = nn.BatchNorm2d(512)
         self.deconv2 = nn.ConvTranspose2d(512, 256, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
         self.bn2     = nn.BatchNorm2d(256)
@@ -61,19 +62,20 @@ class MultiResViT(nn.Module):
         bs = x.size(0)
         out_resnet = self.pretrained_net(x)
 
-        x1 = out_resnet['feat1']    #H/4   256 ch
-        x2 = out_resnet['feat2']    #H/8   512 ch
-        x3 = out_resnet['feat3']    #H/16  1024 ch
-        #x4 = out_resnet['feat4']    #H/32  2048 channels
+        x1 = out_resnet['feat1'] #256
+        x2 = out_resnet['feat2'] #512
+        x3 = out_resnet['feat3'] #1024  
+        x4 = out_resnet['feat4'] #2048   
        
-        img_size = x3.shape[-2:]   
+        img_size = x4.shape[-2:]   
         
-        x3 = self.transformer(x3)
-        x3 = torch.reshape(x, (bs, img_size[1], img_size[0], self.dim))
-        x3 = x3.view(x.size(0), 32, 32, 768)
-        x3 = x3.permute(0, 3, 1, 2).contiguous()
+        x4 = self.proj(x4)
+        x4 = self.transformer(x4)
+        x4 = torch.reshape(x4, (bs, img_size[1], img_size[0], self.dim))
+        x4 = x4.view(x.size(0), 64, 64, self.dim)
+        x4 = x4.permute(0, 3, 1, 2).contiguous()
 
-        score = self.relu(self.deconv1(x3))               
+        score = self.relu(self.deconv1(x4+x3))               
         score = self.bn1(score + x2)                      
         score = self.relu(self.deconv2(score))            
         score = self.bn2(score + x1)                      

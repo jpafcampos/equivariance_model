@@ -6,6 +6,7 @@ import pytorch_lightning as pl
 from torch.utils.tensorboard import SummaryWriter
 from torch.nn import functional as F
 import timm
+import os
 import sys
 sys.path.insert(1, '../utils')
 sys.path.insert(1, '../datasets')
@@ -35,9 +36,9 @@ import line_profiler
 import fcn_small
 
 model_name = "resvit"
-gpu = 0
-device = torch.device("cuda:"+str(gpu) if torch.cuda.is_available() else "cpu")
-print("device used:",device)
+gpu = '1'
+os.environ["CUDA_VISIBLE_DEVICES"] = gpu
+device = torch.device("cuda")
 
 num_classes = 5
 dataroot_landcover = "/local/DEEPLEARNING/landcover_v1"
@@ -65,7 +66,7 @@ elif model_name == "fcn_small":
 elif model_name == "resvit":
     resnet50_dilation = models.resnet50(pretrained=True, replace_stride_with_dilation=[False, True, True])
     backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
-    model = resvit_small.Resvit(backbone=backbone_dilation, num_class=num_classes, dim=768, depth=1, heads=1, mlp_dim=3072, ff=True)
+    model = resvit_small.Resvit(backbone=backbone_dilation, num_class=num_classes, dim=768, depth=1, heads=2, mlp_dim=3072, ff=True)
         
     #resnet50_dilation = models.resnet50(pretrained=False, replace_stride_with_dilation=[False, True, True])
     #backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
@@ -77,7 +78,7 @@ elif model_name == "resvit":
 #model_root = "/users/a/araujofj/data/save_model/FCN/15/my_fcn.tar"
 #model_root = "/users/a/araujofj/data/save_model/resvit/17/resvit_dilation.tar"
 model_root = "/users/a/araujofj/data/save_model/FCN/34/small_fcn.tar" #best FCN
-model_root = "/users/a/araujofj/data/save_model/resvit/67/resvit_dilation.tar" #cyclic lr
+model_root = "/users/a/araujofj/data/save_model/resvit/68/resvit_dilation.tar" #cyclic lr
 
 checkpoint = torch.load(model_root)
 model.load_state_dict(checkpoint['model_state_dict'])

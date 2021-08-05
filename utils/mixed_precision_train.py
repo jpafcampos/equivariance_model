@@ -102,7 +102,7 @@ def mixed_precision_train(model,n_epochs,train_loader,val_loader,test_loader,cri
         #lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
         #optimizer,
         #lambda x: (1 - x / (len(train_loader) * n_epochs)) ** 0.9)
-        #lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=90, gamma=0.1)
+        #lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.1)
         lr_scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=0.001, max_lr=0.01)
 
     #define scaler for mixed precision

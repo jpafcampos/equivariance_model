@@ -139,7 +139,7 @@ def main():
         ])
 
         val_transform = et.ExtCompose([
-            #et.ExtResize( 512 ),
+            et.ExtRandomCrop(size=(args.size_crop, args.size_crop)),
             et.ExtToTensor(),
             et.ExtNormalize(mean=[0.485, 0.456, 0.406],
                             std=[0.229, 0.224, 0.225]),
@@ -149,10 +149,10 @@ def main():
                                split='train', transform=train_transform)
         val_dataset = cs.Cityscapes(root=args.dataroot_cs,
                              split='val', transform=val_transform)
+        test_dataset = cs.Cityscapes(root=args.dataroot_cs, split='test', transform=val_transform)
         num_classes= 19
-        loss_weights = np.load('/users/a/araujofj/loss_weights.npy')
-        loss_weights = loss_weights/np.min(loss_weights) + 0.1
-        loss_weights = torch.from_numpy(loss_weights).float().to('cuda')
+
+
     else:
         print('Loading Landscape Dataset')
         if args.version == 1:
@@ -198,12 +198,12 @@ def main():
         print("created resvit with resnet50 backbone replacing stride with dilation")
         print("Dim, depth, heads and MLP dim: ", args.dim, args.depth, args.num_heads, args.mlp_dim)
 
-    elif args.model.upper()=='RESVIT_TIMM':
+    elif args.model.upper()=='MULTIRESVIT':
         print("Pretrained backbone:", args.pretrained)
-        vit = timm.models.vit_base_r50_s16_384(pretrained=True)
-        resvit_timm_backbone = nn.Sequential(*list(vit.children())[:-1])
-        model = resvit_timm.ResViT_timm(resvit_timm_backbone, num_class=num_classes)
-        print("created pre-trained hybrid vit model")
+        resnet50_dilation = models.resnet50(pretrained=True, replace_stride_with_dilation=[False, True, True])
+        backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer1': 'feat1', 'layer2': 'feat2', 'layer3': 'feat3', 'layer4': 'feat4'})
+        model = multi_res_vit.MultiResViT(backbone_dilation, num_class=num_classes, dim=args.dim, depth=args.depth, heads=args.num_heads, mlp_dim=args.mlp_dim)
+        print("created multires hybrid bit")
 
     elif args.model.upper()=='DLV3':
         model = models.segmentation.deeplabv3_resnet101(pretrained=args.pretrained)
@@ -212,9 +212,7 @@ def main():
             model.aux_classifier[4] = nn.Conv2d(256, num_classes, 1, 1)
     
     elif args.model.upper()=='SETR':
-        vit = timm.create_model('vit_base_patch16_384', pretrained=True)
-        vit_backbone = nn.Sequential(*list(vit.children())[:5])
-        model = setr.Setr(num_class=num_classes, vit_backbone=vit_backbone, bilinear = False)
+        model = setr.Setr(num_class=num_classes, bilinear = False)
 
     elif args.model.upper()=='FCN':
         if args.bilinear_up:
@@ -227,6 +225,7 @@ def main():
             resnet50_dilation = models.resnet50(pretrained=args.pretrained, replace_stride_with_dilation=[False, True, True])
             backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
             model = fcn_small.FCN_(backbone_dilation, num_class=num_classes, dim=args.dim)
+            #model = my_fcn.FCN_(backbone_dilation, num_class=num_classes)
             print("created small FCN model")
     else:
         raise Exception('model not found')
@@ -265,7 +264,11 @@ def main():
             criterion = nn.CrossEntropyLoss(weight=torch.FloatTensor(loss_weights).to(device), ignore_index=255) # On ignore la classe border.
             print("using CrossEntropyLoss with class balancing")
         else:
-            criterion = nn.CrossEntropyLoss(ignore_index=255)
+            loss_weights = torch.tensor([ 1.1,          6.16178822,   1.71923575,  56.39632727,
+                             42.14954318,  30.17444113, 177.77029189,  67.05827838,   2.42050082,
+                             31.9604042,   9.34098606,  30.34813821, 272.95300993,   5.37351881,
+                            138.03022215, 156.89769638, 158.50789819, 374.17642732,  89.20747291])
+            criterion = nn.CrossEntropyLoss(weight=torch.FloatTensor(loss_weights).to(device), ignore_index=255)
         #torch.autograd.set_detect_anomaly(True)
     else:
         criterion = nn.CrossEntropyLoss(ignore_index=255)

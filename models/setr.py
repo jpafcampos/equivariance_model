@@ -21,10 +21,23 @@ import vit
 
 class Setr(nn.Module):
 
-    def __init__(self, vit_backbone, num_class, bilinear = False):
+    def __init__(self, num_class, bilinear = False):
         super(Setr, self).__init__()
 
-        self.vit_backbone = vit_backbone
+        self.vit_backbone = vit.ViT(
+            image_size = 512,
+            patch_size = 16,
+            num_classes = 64, #not used
+            dim = 768,
+            depth = 12,    #number of encoders
+            heads = 4,    #number of heads in self attention
+            mlp_dim = 3072,   #hidden dimension in feedforward layer
+            channels = 3,
+            dim_head = 192,
+            dropout = 0.1,
+            emb_dropout = 0.1,
+            ff = True
+        )
         #self.channel_reduction = nn.Conv2d(in_channels=dim, out_channels=1024, kernel_size=3, padding=1)
         self.n_class = num_class
         self.relu    = nn.ReLU(inplace=True)
@@ -54,7 +67,8 @@ class Setr(nn.Module):
     def forward(self, x):   
         bs = x.size(0)     
         score = self.vit_backbone(x)
-        score = torch.reshape(score, (bs, 24, 24, 768))
+        print(score.size())
+        score = torch.reshape(score, (bs, 32, 32, 768))
         score = torch.transpose(score, 1, 3)
 
         score = self.up1(self.bn1(self.relu(self.deconv1(score))))    
