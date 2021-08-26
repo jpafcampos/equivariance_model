@@ -44,7 +44,8 @@ class Resvit(nn.Module):
 
         self.num_class = num_class
 
-        self.proj    = nn.Conv2d(in_channels=2048, out_channels=dim, kernel_size=3, padding=1)
+        #self.proj    = nn.Conv2d(in_channels=2048, out_channels=dim, kernel_size=3, padding=1)
+        self.proj    = nn.Conv2d(in_channels=2048, out_channels=dim, kernel_size=1, stride=1)
         self.relu    = nn.ReLU(inplace=True)
         self.deconv1 = nn.ConvTranspose2d(dim, 256, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
         self.bn1     = nn.BatchNorm2d(256)

@@ -4,16 +4,17 @@ from torch import nn
 
 from vit import Attention
 
-## TODO
-# recreate this wrapper but taking the whole hybrid model
+import resvit_small
+from torchvision import models
+
 
 def find_modules(nn_module, type):
     return [module for module in nn_module.modules() if isinstance(module, type)]
 
 class Recorder(nn.Module):
-    def __init__(self, vit, device = None):
+    def __init__(self, model, device = None):
         super().__init__()
-        self.vit = vit
+        self.model = model
 
         self.data = None
         self.recordings = []
@@ -26,7 +27,7 @@ class Recorder(nn.Module):
         self.recordings.append(output.clone().detach())
 
     def _register_hook(self):
-        modules = find_modules(self.vit.transformer, Attention)
+        modules = find_modules(self.model.transformer.transformer, Attention)   ##maybe model.vit.transformer
         for module in modules:
             handle = module.attend.register_forward_hook(self._hook)
             self.hooks.append(handle)
@@ -37,7 +38,7 @@ class Recorder(nn.Module):
         for hook in self.hooks:
             hook.remove()
         self.hooks.clear()
-        return self.vit
+        return self.model
 
     def clear(self):
         self.recordings.clear()
@@ -52,7 +53,7 @@ class Recorder(nn.Module):
         if not self.hook_registered:
             self._register_hook()
 
-        pred = self.vit(img)
+        pred = self.model(img)
 
         # move all recordings to one device before stacking
         target_device = self.device if self.device is not None else img.device
@@ -60,3 +61,13 @@ class Recorder(nn.Module):
 
         attns = torch.stack(recordings, dim = 1)
         return pred, attns
+
+#print("ok")
+#resnet50_dilation = models.resnet50(pretrained=True, replace_stride_with_dilation=[False, True, True])
+#backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
+#model = resvit_small.Resvit(backbone=backbone_dilation, num_class=5, dim=768, depth=1, heads=1, mlp_dim=1024, ff=True)
+##print(model)
+#model = Recorder(model)
+#img = torch.randn(1, 3, 512, 512)
+#preds, attns = model(img)
+#print(attns.size()) #[1,1,1,4096,4096]

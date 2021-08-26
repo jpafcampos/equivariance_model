@@ -26,7 +26,6 @@ import setr
 import vit
 import transFCN
 import multi_res_vit
-import resvit_timm
 import numpy as np
 
 import fcn_small
@@ -285,7 +284,7 @@ def main():
                     device=device,num_classes=num_classes)
     else:
         mp.mixed_precision_train(model=model,n_epochs=args.n_epochs,train_loader=dataloader_train,val_loader=dataloader_val,test_loader=dataloader_test,criterion=criterion,\
-            optimizer=optimizer,scheduler=args.scheduler,auto_lr=args.auto_lr, save_folder=save_dir,model_name=args.model_name,benchmark=False,save_all_ep=True,\
+            optimizer=optimizer,lr=args.learning_rate, scheduler=args.scheduler,auto_lr=args.auto_lr, save_folder=save_dir,model_name=args.model_name,benchmark=False,save_all_ep=True,\
                  save_best=False, save_val_results = False, device=device,num_classes=num_classes)
 
 

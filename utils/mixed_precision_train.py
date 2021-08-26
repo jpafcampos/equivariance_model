@@ -76,7 +76,7 @@ def validate(model, loader, device, metrics, save_val_results = False):
     return score
 
 #@profile
-def mixed_precision_train(model,n_epochs,train_loader,val_loader,test_loader,criterion,optimizer,scheduler,auto_lr,\
+def mixed_precision_train(model,n_epochs,train_loader,val_loader,test_loader,criterion,optimizer,lr,scheduler,auto_lr,\
         save_folder,model_name,benchmark=False,save_all_ep=True, save_best=False, save_val_results = False, device='cpu',num_classes=21):
     """
         A complete training of fully supervised model. 
@@ -103,7 +103,7 @@ def mixed_precision_train(model,n_epochs,train_loader,val_loader,test_loader,cri
         #optimizer,
         #lambda x: (1 - x / (len(train_loader) * n_epochs)) ** 0.9)
         #lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.1)
-        lr_scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=0.001, max_lr=0.01)
+        lr_scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=lr, max_lr=10*lr)
 
     #define scaler for mixed precision
     scaler = torch.cuda.amp.GradScaler()
