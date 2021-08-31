@@ -487,7 +487,7 @@ class LandscapeDataset(Dataset):
                  p_rotate = 0.25,
                  rotate = False,
                  lc_augs = False, #perform hue, saturation and brightness changes
-                 crop_val = False,
+                 crop_val = True,
                  scale = True,
                  normalize = True,
                  pi_rotate = True,

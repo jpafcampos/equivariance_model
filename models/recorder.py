@@ -27,7 +27,7 @@ class Recorder(nn.Module):
         self.recordings.append(output.clone().detach())
 
     def _register_hook(self):
-        modules = find_modules(self.model.transformer.transformer, Attention)   ##maybe model.vit.transformer
+        modules = find_modules(self.model.transformer.transformer, Attention) 
         for module in modules:
             handle = module.attend.register_forward_hook(self._hook)
             self.hooks.append(handle)

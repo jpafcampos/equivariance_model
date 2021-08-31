@@ -102,8 +102,8 @@ def mixed_precision_train(model,n_epochs,train_loader,val_loader,test_loader,cri
         #lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
         #optimizer,
         #lambda x: (1 - x / (len(train_loader) * n_epochs)) ** 0.9)
-        #lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.1)
-        lr_scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=lr, max_lr=10*lr)
+        lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
+        #lr_scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=lr, max_lr=10*lr)
 
     #define scaler for mixed precision
     scaler = torch.cuda.amp.GradScaler()
@@ -159,9 +159,9 @@ def mixed_precision_train(model,n_epochs,train_loader,val_loader,test_loader,cri
             epoch_loss += loss.item()
             train_losses.append(loss.item())
             
-            if scheduler: #cyclic 
-                lr_scheduler.step()
-                #print(lr_scheduler.get_last_lr())
+            #if scheduler: #cyclic 
+            #    lr_scheduler.step()
+            #    #print(lr_scheduler.get_last_lr())
             
             if cur_itrs%200 == 0:
                 print(epoch, cur_itrs, loss.item()) 
@@ -194,10 +194,10 @@ def mixed_precision_train(model,n_epochs,train_loader,val_loader,test_loader,cri
             print("Score on train set: ")
             print(metrics.to_str(score_on_train_set))
         
-        #if scheduler: #step scheduler
-        #    lr_scheduler.step()
-        #    print("learning rate:")
-        #    print(lr_scheduler.get_last_lr())
+        if scheduler: #step scheduler
+            lr_scheduler.step()
+            print("learning rate:")
+            print(lr_scheduler.get_last_lr())
 
         #back to train mode
         model.train()

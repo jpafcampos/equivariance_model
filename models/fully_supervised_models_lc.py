@@ -95,7 +95,7 @@ def main():
     parser.add_argument('--dataroot_sbd', default='/data/sbd', type=str)
     #parser.add_argument('--dataroot_landcover', default='/local/DEEPLEARNING/landcover_v1', type=str)
     parser.add_argument('--dataroot_cs', default='/local/DEEPLEARNING/cityscapes', type=str)
-    parser.add_argument('--class_weights', default=True, type=U.str2bool)
+    parser.add_argument('--class_weights', default=False, type=U.str2bool)
 
     
     # Save parameters
@@ -210,8 +210,11 @@ def main():
             model.classifier[4] = nn.Conv2d(256, num_classes, 1, 1)
             model.aux_classifier[4] = nn.Conv2d(256, num_classes, 1, 1)
     
-    elif args.model.upper()=='SETR':
-        model = setr.Setr(num_class=num_classes, bilinear = False)
+    elif args.model.upper() == 'SETR':
+        vit = timm.create_model('vit_base_patch16_384', pretrained=True)
+        vit_backbone = nn.Sequential(*list(vit.children())[:5])
+        model = setr.Setr(num_class=num_classes, vit_backbone=vit_backbone, bilinear = False)
+        print("created SETR model")
 
     elif args.model.upper()=='FCN':
         if args.bilinear_up:
