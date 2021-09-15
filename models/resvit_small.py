@@ -44,8 +44,8 @@ class Resvit(nn.Module):
 
         self.num_class = num_class
 
-        #self.proj    = nn.Conv2d(in_channels=2048, out_channels=dim, kernel_size=3, padding=1)
-        self.proj    = nn.Conv2d(in_channels=2048, out_channels=dim, kernel_size=1, stride=1)
+        self.proj    = nn.Conv2d(in_channels=2048, out_channels=dim, kernel_size=3, padding=1)
+        #self.proj    = nn.Conv2d(in_channels=2048, out_channels=dim, kernel_size=1, stride=1)
         self.relu    = nn.ReLU(inplace=True)
         self.deconv1 = nn.ConvTranspose2d(dim, 256, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
         self.bn1     = nn.BatchNorm2d(256)
@@ -74,10 +74,11 @@ class Resvit(nn.Module):
             self.dim
         )
         score = score.permute(0, 3, 1, 2).contiguous()
+        trans_out = score
         score = self.bn1(self.relu(self.deconv1(score)))
         score = self.bn2(self.relu(self.deconv2(score))) 
         score = self.bn3(self.relu(self.deconv3(score)))
         score = self.classifier(score)     
 
-        return score
+        return score, trans_out
 

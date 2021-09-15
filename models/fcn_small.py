@@ -47,9 +47,10 @@ class FCN_(nn.Module):
         score = self.backbone(x)
         score = score['feat4']
         score = self.proj(score)
+        features = score
         score = self.bn1(self.relu(self.deconv1(score)))
         score = self.bn2(self.relu(self.deconv2(score))) 
         score = self.bn3(self.relu(self.deconv3(score)))
         score = self.classifier(score)     
 
-        return score   
+        return score, features
