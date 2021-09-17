@@ -8,6 +8,7 @@ from torchvision import models, transforms
 import resvit_small
 import setr
 import fcn_small
+import timm
 import os
 import PIL
 from PIL import Image
@@ -16,7 +17,7 @@ from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
-model_name = "resvit"
+model_name = "setr"
 
 colors_per_class = {
     0 : [0, 0, 0],
@@ -54,20 +55,21 @@ os.environ["CUDA_VISIBLE_DEVICES"] = gpu
 #device = torch.device("cuda")
 device = torch.device("cpu")
 num_classes = 5
+H = 24
 dim = 768
 depth = 1
 num_heads = 2
 mlp_dim = 3072
 
 
-downsample = transforms.Resize((64,64))
+downsample = transforms.Resize((H,H))
 
 img = cv.imread(f"../N-33-60-D-c-4-2_24.jpg")
 gt = Image.open(f"../N-33-60-D-c-4-2_24_m.png")
 img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
 gt = downsample(gt)
 gt = to_tensor_target_lc(gt)
-gt = gt.reshape(4096)
+gt = gt.reshape(H*H)
 print(gt.size())
 unique, count = np.unique(gt, return_counts=True)
 print(unique, count)
@@ -81,6 +83,7 @@ plt.show()
 transform = transforms.Compose([
     transforms.ToPILImage(),
     transforms.Resize((512, 512)),
+    transforms.CenterCrop(384),
     transforms.ToTensor(),
 ])
 
@@ -109,8 +112,8 @@ if model_name == "setr":
 
 
 model_root = "/users/a/araujofj/data/save_model/resvit/69/resvit_dilation.tar" #cyclic lr
-#model_root = "/users/a/araujofj/fcn_baseline_lc1.pt" #best FCN
-#model_root = "/users/a/araujofj/data/save_model/setr/2"
+model_root = "/users/a/araujofj/fcn_baseline_lc1.pt" #best FCN
+model_root = "/users/a/araujofj/data/save_model/setr/7/setr.tar"
 
 checkpoint = torch.load(model_root, map_location = device)
 model.load_state_dict(checkpoint['model_state_dict'])
@@ -124,7 +127,7 @@ model.eval()
 y, features = model(img)
 
 features = features.squeeze(0)  #C x H/8 x W/8
-features = features.reshape(768, 64*64)
+features = features.reshape(768, H*H)
 features = features.permute(1,0).contiguous()
 features = features.detach().numpy()
 print(features.shape)
