@@ -74,11 +74,21 @@ class Resvit(nn.Module):
             self.dim
         )
         score = score.permute(0, 3, 1, 2).contiguous()
-        trans_out = score
+        features = score
         score = self.bn1(self.relu(self.deconv1(score)))
         score = self.bn2(self.relu(self.deconv2(score))) 
         score = self.bn3(self.relu(self.deconv3(score)))
         score = self.classifier(score)     
 
-        return score, trans_out
+        return score, features
 
+
+#resnet50_dilation = models.resnet50(pretrained=True, replace_stride_with_dilation=[False, True, True])
+#backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
+#model = Resvit(backbone=backbone_dilation, num_class=5, dim=768, depth=1, heads=2, mlp_dim=3072, ff=True)
+#
+#def count_parameters(model):
+#    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+#
+#print(count_parameters(model))
+#print(model)

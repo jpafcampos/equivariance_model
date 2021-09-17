@@ -16,14 +16,30 @@ from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
-model_name = "fcn"
+model_name = "resvit"
 
 colors_per_class = {
-    '0' : [0, 0, 0],
-    '1' : [255, 107, 107],
-    '2' : [10, 189, 227],
-    '3' : [25, 60, 243],
-    '4' : [156, 72, 132]
+    0 : [0, 0, 0],
+    1 : [255, 107, 107],
+    2 : [10, 189, 227],
+    3 : [25, 60, 243],
+    4 : [156, 72, 132]
+}
+colors_per_class = {
+    'background' : 'orange',
+    'buildings' : 'maroon',
+    'woods' : 'green',
+    'water' : 'blue',
+    'roads' : 'yellow'
+}
+
+classes = ['background', 'buildings', 'woods', 'water', 'roads']
+classes_id = {
+    'background' : 0,
+    'buildings'  : 1,
+    'woods'      : 2,
+    'water'      : 3,
+    'roads'      : 4
 }
 
 def to_tensor_target_lc(mask):
@@ -93,8 +109,8 @@ if model_name == "setr":
 
 
 model_root = "/users/a/araujofj/data/save_model/resvit/69/resvit_dilation.tar" #cyclic lr
-model_root = "/users/a/araujofj/fcn_baseline_lc1.pt" #best FCN
-model_root = "/users/a/araujofj/data/save_model/setr/2"
+#model_root = "/users/a/araujofj/fcn_baseline_lc1.pt" #best FCN
+#model_root = "/users/a/araujofj/data/save_model/setr/2"
 
 checkpoint = torch.load(model_root, map_location = device)
 model.load_state_dict(checkpoint['model_state_dict'])
@@ -115,15 +131,17 @@ print(features.shape)
 
 
 
-tsne = TSNE(2, verbose=1)
+tsne = TSNE(2, perplexity=40, learning_rate=2000, n_iter=4000,verbose=1)
 tsne_proj = tsne.fit_transform(features)
 # Plot those points as a scatter plot and label them based on the pred labels
-cmap = cm.get_cmap('Set1')
+cmap = cm.get_cmap('tab20b')
 fig, ax = plt.subplots(figsize=(8,8))
 num_categories = 5
-for lab in range(num_categories):
-    indices = gt==lab
-    ax.scatter(tsne_proj[indices,0],tsne_proj[indices,1], c=np.array(cmap(lab)).reshape(1,4), label = lab ,alpha=0.5)
+for lab in classes[1:]:
+    print(lab)
+    indices = gt==classes_id[lab]
+    #ax.scatter(tsne_proj[indices,0],tsne_proj[indices,1], c=np.array(cmap(lab)).reshape(1,4), label = lab ,alpha=0.5)
+    ax.scatter(tsne_proj[indices,0],tsne_proj[indices,1], c=colors_per_class[lab], label = lab ,alpha=0.5)
 ax.legend(fontsize='large', markerscale=2)
 plt.show()
 
