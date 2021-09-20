@@ -62,23 +62,20 @@ num_heads = 2
 mlp_dim = 3072
 
 
-downsample = transforms.Resize((H,H))
+downsample = transforms.Resize((64,64))
+upsample = transforms.Resize((64,64))
 
 img = cv.imread(f"../N-33-60-D-c-4-2_24.jpg")
 gt = Image.open(f"../N-33-60-D-c-4-2_24_m.png")
 img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
 gt = downsample(gt)
 gt = to_tensor_target_lc(gt)
-gt = gt.reshape(H*H)
+gt = gt.reshape(4096)
 print(gt.size())
 unique, count = np.unique(gt, return_counts=True)
 print(unique, count)
 
 
-#print(gt.size)
-
-plt.imshow(img)
-plt.show()
 # define the transforms
 transform = transforms.Compose([
     transforms.ToPILImage(),
@@ -127,14 +124,15 @@ model.eval()
 y, features = model(img)
 
 features = features.squeeze(0)  #C x H/8 x W/8
-features = features.reshape(768, H*H)
+features = upsample(features)
+features = features.reshape(768, 4096)
 features = features.permute(1,0).contiguous()
 features = features.detach().numpy()
 print(features.shape)
 
 
 
-tsne = TSNE(2, perplexity=40, learning_rate=2000, n_iter=4000,verbose=1)
+tsne = TSNE(2, perplexity=45, learning_rate=100, n_iter=4000,verbose=1, init='pca')
 tsne_proj = tsne.fit_transform(features)
 # Plot those points as a scatter plot and label them based on the pred labels
 cmap = cm.get_cmap('tab20b')
@@ -149,3 +147,4 @@ ax.legend(fontsize='large', markerscale=2)
 plt.show()
 
 plt.savefig('tsne.png')
+

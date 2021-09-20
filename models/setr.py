@@ -56,6 +56,7 @@ class Setr(nn.Module):
             768
         )
         score = score.permute(0, 3, 1, 2).contiguous()
+        features = score
         #score = torch.transpose(score, 1, 3)
         #print(score.size())
 
@@ -65,4 +66,4 @@ class Setr(nn.Module):
         score = self.bn4(self.relu(self.deconv4(score)))  
         score = self.classifier(score)                   
 
-        return score  # size=(N, n_class, x.H/1, x.W/1)  
+        return score, features  # size=(N, n_class, x.H/1, x.W/1)  
