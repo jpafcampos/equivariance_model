@@ -53,4 +53,4 @@ class FCN_(nn.Module):
         score = self.bn3(self.relu(self.deconv3(score)))
         score = self.classifier(score)     
 
-        return score
+        return score, features

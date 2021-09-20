@@ -17,7 +17,7 @@ from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
-model_name = "setr"
+model_name = "fcn"
 
 colors_per_class = {
     0 : [0, 0, 0],
@@ -77,12 +77,19 @@ print(unique, count)
 
 
 # define the transforms
-transform = transforms.Compose([
-    transforms.ToPILImage(),
-    transforms.Resize((512, 512)),
-    transforms.CenterCrop(384),
-    transforms.ToTensor(),
-])
+if model_name == 'setr':
+    transform = transforms.Compose([
+        transforms.ToPILImage(),
+        transforms.Resize((512, 512)),
+        transforms.CenterCrop(384),
+        transforms.ToTensor(),
+    ])
+else:
+    transform = transforms.Compose([
+        transforms.ToPILImage(),
+        transforms.Resize((512, 512)),
+        transforms.ToTensor(),
+    ])        
 
 img = np.array(img)
 # apply the transforms
@@ -96,21 +103,21 @@ if model_name == "resvit":
     resnet50_dilation = models.resnet50(pretrained=True, replace_stride_with_dilation=[False, True, True])
     backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
     model = resvit_small.Resvit(backbone=backbone_dilation, num_class=num_classes, dim=dim, depth=depth, heads=num_heads, mlp_dim=mlp_dim)
+    model_root = "/users/a/araujofj/data/save_model/resvit/69/resvit_dilation.tar" #cyclic lr
 
 if model_name == "fcn":
     resnet50_dilation = models.resnet50(pretrained=False, replace_stride_with_dilation=[False, True, True])
     backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
     model = fcn_small.FCN_(backbone_dilation, num_class=num_classes, dim=768)
+    model_root = "/users/a/araujofj/data/save_model/FCN/8/small_fcn.tar"
 
 if model_name == "setr":
     vit = timm.create_model('vit_base_patch16_384', pretrained=True)
     vit_backbone = nn.Sequential(*list(vit.children())[:5])
     model = setr.Setr(num_class=num_classes, vit_backbone=vit_backbone, bilinear = False)
+    model_root = "/users/a/araujofj/data/save_model/setr/7/setr.tar"
 
 
-model_root = "/users/a/araujofj/data/save_model/resvit/69/resvit_dilation.tar" #cyclic lr
-model_root = "/users/a/araujofj/fcn_baseline_lc1.pt" #best FCN
-model_root = "/users/a/araujofj/data/save_model/setr/7/setr.tar"
 
 checkpoint = torch.load(model_root, map_location = device)
 model.load_state_dict(checkpoint['model_state_dict'])
@@ -124,7 +131,8 @@ model.eval()
 y, features = model(img)
 
 features = features.squeeze(0)  #C x H/8 x W/8
-features = upsample(features)
+if model_name == 'setr':
+    features = upsample(features)
 features = features.reshape(768, 4096)
 features = features.permute(1,0).contiguous()
 features = features.detach().numpy()
@@ -132,7 +140,7 @@ print(features.shape)
 
 
 
-tsne = TSNE(2, perplexity=45, learning_rate=100, n_iter=4000,verbose=1, init='pca')
+tsne = TSNE(2, perplexity=25, learning_rate=1000, n_iter=4000,verbose=1, init='pca')
 tsne_proj = tsne.fit_transform(features)
 # Plot those points as a scatter plot and label them based on the pred labels
 cmap = cm.get_cmap('tab20b')
@@ -146,5 +154,4 @@ for lab in classes[1:]:
 ax.legend(fontsize='large', markerscale=2)
 plt.show()
 
-plt.savefig('tsne.png')
-
+plt.savefig('tsne_'+model_name+'.png')
