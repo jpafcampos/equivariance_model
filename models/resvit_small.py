@@ -80,7 +80,7 @@ class Resvit(nn.Module):
         score = self.bn3(self.relu(self.deconv3(score)))
         score = self.classifier(score)     
 
-        return score, features
+        return score
 
 
 #resnet50_dilation = models.resnet50(pretrained=True, replace_stride_with_dilation=[False, True, True])

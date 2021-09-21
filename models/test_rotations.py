@@ -34,7 +34,9 @@ import stream_metrics as sm
 import line_profiler
 import fcn_small
 
-model_name = "setr"
+operation = "translation"
+
+model_name = "resvit"
 gpu = '0'
 os.environ["CUDA_VISIBLE_DEVICES"] = gpu
 device = torch.device("cuda")
@@ -63,8 +65,8 @@ elif model_name == "resvit":
     resnet50_dilation = models.resnet50(pretrained=True, replace_stride_with_dilation=[False, True, True])
     backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
     model = resvit_small.Resvit(backbone=backbone_dilation, num_class=num_classes, dim=768, depth=1, heads=2, mlp_dim=3072, ff=True)
-    model_root = "/users/a/araujofj/data/save_model/resvit/68/resvit_dilation.tar" #cyclic lr
-    #model_root = "/users/a/araujofj/data/save_model/resvit/106/resvit_dilation.tar" # no p.e.
+    #model_root = "/users/a/araujofj/data/save_model/resvit/68/resvit_dilation.tar" #cyclic lr
+    model_root = "/users/a/araujofj/data/save_model/resvit/106/resvit_dilation.tar" # no p.e.
 
 elif model_name == 'setr':
     vit = timm.create_model('vit_base_patch16_384', pretrained=True)
@@ -141,14 +143,22 @@ def validate(model, loader, device, metrics, save_val_results = False):
 angles = [330,340,350,0,10,20,30]
 results = {}
 
+if operation == "rotation":
+    for angle in angles:
+        print("testing angle ", angle)
+        test_dataset = mdset.LandscapeDataset(dataroot_landcover,image_set="test", size_crop= (384,384), fixing_rotate=True, angle_fix = angle)
+        test_loader = torch.utils.data.DataLoader(test_dataset,num_workers=4,batch_size=1)
+        metrics = sm.StreamSegMetrics(num_classes)
+        val_score = validate(model=model, loader=test_loader, device=device, metrics=metrics, save_val_results=False)
+        print(metrics.to_str(val_score))
+        results[angle] = val_score['Mean IoU']
 
-for angle in angles:
-    print("testing angle ", angle)
-    test_dataset = mdset.LandscapeDataset(dataroot_landcover,image_set="test", size_crop= (384,384), fixing_rotate=True, angle_fix = angle)
+else:
+    print("testing translation")
+    test_dataset = mdset.LandscapeDataset(dataroot_landcover,image_set="test", translation = True)
     test_loader = torch.utils.data.DataLoader(test_dataset,num_workers=4,batch_size=1)
     metrics = sm.StreamSegMetrics(num_classes)
     val_score = validate(model=model, loader=test_loader, device=device, metrics=metrics, save_val_results=False)
     print(metrics.to_str(val_score))
-    results[angle] = val_score['Mean IoU']
 
 print(results)
