@@ -34,7 +34,7 @@ import stream_metrics as sm
 import line_profiler
 import fcn_small
 
-model_name = "resvit"
+model_name = "setr"
 gpu = '0'
 os.environ["CUDA_VISIBLE_DEVICES"] = gpu
 device = torch.device("cuda")
@@ -71,6 +71,7 @@ elif model_name == 'setr':
     vit_backbone = nn.Sequential(*list(vit.children())[:5])
     model = setr.Setr(num_class=num_classes, vit_backbone=vit_backbone, bilinear = False)
     print("created SETR model")
+    model_root = "/users/a/araujofj/data/save_model/setr/7/setr.tar"
 
 
 checkpoint = torch.load(model_root, map_location=device)
@@ -143,7 +144,7 @@ results = {}
 
 for angle in angles:
     print("testing angle ", angle)
-    test_dataset = mdset.LandscapeDataset(dataroot_landcover,image_set="test",  fixing_rotate=True, angle_fix = angle)
+    test_dataset = mdset.LandscapeDataset(dataroot_landcover,image_set="test", size_crop= (384,384), fixing_rotate=True, angle_fix = angle)
     test_loader = torch.utils.data.DataLoader(test_dataset,num_workers=4,batch_size=1)
     metrics = sm.StreamSegMetrics(num_classes)
     val_score = validate(model=model, loader=test_loader, device=device, metrics=metrics, save_val_results=False)

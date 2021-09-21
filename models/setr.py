@@ -66,4 +66,4 @@ class Setr(nn.Module):
         score = self.bn4(self.relu(self.deconv4(score)))  
         score = self.classifier(score)                   
 
-        return score, features  # size=(N, n_class, x.H/1, x.W/1)  
+        return score  # size=(N, n_class, x.H/1, x.W/1)  
