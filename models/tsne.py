@@ -17,7 +17,7 @@ from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
-model_name = "fcn"
+model_name = "resvit"
 
 colors_per_class = {
     0 : [0, 0, 0],
@@ -103,7 +103,8 @@ if model_name == "resvit":
     resnet50_dilation = models.resnet50(pretrained=True, replace_stride_with_dilation=[False, True, True])
     backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
     model = resvit_small.Resvit(backbone=backbone_dilation, num_class=num_classes, dim=dim, depth=depth, heads=num_heads, mlp_dim=mlp_dim)
-    model_root = "/users/a/araujofj/data/save_model/resvit/69/resvit_dilation.tar" #cyclic lr
+    #model_root = "/users/a/araujofj/data/save_model/resvit/69/resvit_dilation.tar" #cyclic lr
+    model_root = "/users/a/araujofj/data/save_model/resvit/106/resvit_dilation.tar" # no p.e.
 
 if model_name == "fcn":
     resnet50_dilation = models.resnet50(pretrained=False, replace_stride_with_dilation=[False, True, True])

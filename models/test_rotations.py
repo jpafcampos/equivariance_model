@@ -34,20 +34,16 @@ import stream_metrics as sm
 import line_profiler
 import fcn_small
 
-model_name = "fcn_small"
-gpu = '1'
+model_name = "resvit"
+gpu = '0'
 os.environ["CUDA_VISIBLE_DEVICES"] = gpu
 device = torch.device("cuda")
 
 num_classes = 5
 dataroot_landcover = "/local/DEEPLEARNING/landcover_v1"
 
-print('Loading Landscape Dataset')
-test_dataset = mdset.LandscapeDataset(dataroot_landcover,image_set="test")
-print('Success load Landscape Dataset, '+ str(len(test_dataset))+ ' images found')
 
-test_loader = torch.utils.data.DataLoader(test_dataset,num_workers=4,batch_size=1)
-print("test loader created")
+# MODEL CREATION
 
 if model_name == "fcn":
     #model = models.segmentation.fcn_resnet50(pretrained=True)
@@ -68,19 +64,16 @@ elif model_name == "resvit":
     backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
     model = resvit_small.Resvit(backbone=backbone_dilation, num_class=num_classes, dim=768, depth=1, heads=2, mlp_dim=3072, ff=True)
     model_root = "/users/a/araujofj/data/save_model/resvit/68/resvit_dilation.tar" #cyclic lr
-        
-    #resnet50_dilation = models.resnet50(pretrained=False, replace_stride_with_dilation=[False, True, True])
-    #backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
-    #model = resnet50ViT.Resvit(backbone_dilation, num_class=num_classes, heads=2)
+    #model_root = "/users/a/araujofj/data/save_model/resvit/106/resvit_dilation.tar" # no p.e.
+
+elif model_name == 'setr':
+    vit = timm.create_model('vit_base_patch16_384', pretrained=True)
+    vit_backbone = nn.Sequential(*list(vit.children())[:5])
+    model = setr.Setr(num_class=num_classes, vit_backbone=vit_backbone, bilinear = False)
+    print("created SETR model")
 
 
-#model_root = "/users/a/araujofj/data/save_model/FCN/22/small_fcn.tar"  #fcn small
-#model_root = "/users/a/araujofj/data/save_model/resvit/55/resvit_dilation.tar" #bigger lr
-#model_root = "/users/a/araujofj/data/save_model/FCN/15/my_fcn.tar"
-#model_root = "/users/a/araujofj/data/save_model/resvit/17/resvit_dilation.tar"
-
-
-checkpoint = torch.load(model_root)
+checkpoint = torch.load(model_root, map_location=device)
 model.load_state_dict(checkpoint['model_state_dict'])
 print("loaded state dict")
 model.to(device)
@@ -144,6 +137,17 @@ def validate(model, loader, device, metrics, save_val_results = False):
         score = metrics.get_results()
     return score
 
-metrics = sm.StreamSegMetrics(num_classes)
-val_score = validate(model=model, loader=test_loader, device=device, metrics=metrics, save_val_results=False)
-print(metrics.to_str(val_score))
+angles = [330,340,350,0,10,20,30]
+results = {}
+
+
+for angle in angles:
+    print("testing angle ", angle)
+    test_dataset = mdset.LandscapeDataset(dataroot_landcover,image_set="test",  fixing_rotate=True, angle_fix = angle)
+    test_loader = torch.utils.data.DataLoader(test_dataset,num_workers=4,batch_size=1)
+    metrics = sm.StreamSegMetrics(num_classes)
+    val_score = validate(model=model, loader=test_loader, device=device, metrics=metrics, save_val_results=False)
+    print(metrics.to_str(val_score))
+    results[angle] = val_score['Mean IoU']
+
+print(results)
