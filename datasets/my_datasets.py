@@ -491,6 +491,7 @@ class LandscapeDataset(Dataset):
                  scale = True,
                  normalize = True,
                  pi_rotate = True,
+                 translation = True,
                  fixing_rotate = False,
                  angle_fix = 0,
                  angle_max = 360):
@@ -511,6 +512,7 @@ class LandscapeDataset(Dataset):
         self.scale = scale
         self.normalize = normalize # Use un-normalize image for plotting
         self.pi_rotate = pi_rotate # Use only rotation 90,180,270 rotations
+        self.translation = translation #For test time, eval translation equivariance
         self.fixing_rotate = fixing_rotate # For test time, allow to eval a model on the dataset with a certain angle
         self.angle_fix = angle_fix # The angle used for the fixing rotation
         self.angle_max = angle_max
@@ -594,6 +596,12 @@ class LandscapeDataset(Dataset):
         image = TF.to_tensor(image)
         mask = to_tensor_target_lc(mask)
         
+        if self.translation:
+            mask = mask.unsqueeze(0)
+            image = TF.affine(image, angle=0, translate=(0.3, 0.3), scale=1.0 , shear= 0, fill=self.fill_idx)
+            mask = TF.affine(mask, angle=0, translate=(0.3, 0.3), scale=1.0 , shear= 0, fill=self.fill_idx)
+            mask = mask.squeeze()
+
         # Apply a fixed rotation for test time:
         if self.fixing_rotate:
             mask = mask.unsqueeze(0)
