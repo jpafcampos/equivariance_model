@@ -34,7 +34,7 @@ import stream_metrics as sm
 import line_profiler
 import fcn_small
 
-model_name = "fcn_small"
+model_name = "resvit"
 gpu = '1'
 os.environ["CUDA_VISIBLE_DEVICES"] = gpu
 device = torch.device("cuda")
@@ -67,7 +67,8 @@ elif model_name == "resvit":
     resnet50_dilation = models.resnet50(pretrained=True, replace_stride_with_dilation=[False, True, True])
     backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
     model = resvit_small.Resvit(backbone=backbone_dilation, num_class=num_classes, dim=768, depth=1, heads=2, mlp_dim=3072, ff=True)
-    model_root = "/users/a/araujofj/data/save_model/resvit/68/resvit_dilation.tar" #cyclic lr
+    #model_root = "/users/a/araujofj/data/save_model/resvit/68/resvit_dilation.tar" #cyclic lr
+    model_root = "/users/a/araujofj/data/save_model/resvit/69/resvit_dilation.tar" #cyclic lr
         
     #resnet50_dilation = models.resnet50(pretrained=False, replace_stride_with_dilation=[False, True, True])
     #backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
@@ -80,7 +81,7 @@ elif model_name == "resvit":
 #model_root = "/users/a/araujofj/data/save_model/resvit/17/resvit_dilation.tar"
 
 
-checkpoint = torch.load(model_root)
+checkpoint = torch.load(model_root, map_location=device)
 model.load_state_dict(checkpoint['model_state_dict'])
 print("loaded state dict")
 model.to(device)

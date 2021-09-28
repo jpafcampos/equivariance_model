@@ -34,10 +34,10 @@ import stream_metrics as sm
 import line_profiler
 import fcn_small
 
-operation = "translation"
+operation = "rotation"
 
 model_name = "resvit"
-gpu = '0'
+gpu = '1'
 os.environ["CUDA_VISIBLE_DEVICES"] = gpu
 device = torch.device("cuda")
 
@@ -65,8 +65,8 @@ elif model_name == "resvit":
     resnet50_dilation = models.resnet50(pretrained=True, replace_stride_with_dilation=[False, True, True])
     backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
     model = resvit_small.Resvit(backbone=backbone_dilation, num_class=num_classes, dim=768, depth=1, heads=2, mlp_dim=3072, ff=True)
-    #model_root = "/users/a/araujofj/data/save_model/resvit/68/resvit_dilation.tar" #cyclic lr
-    model_root = "/users/a/araujofj/data/save_model/resvit/106/resvit_dilation.tar" # no p.e.
+    model_root = "/users/a/araujofj/data/save_model/resvit/99/resvit_dilation.tar" #cyclic lr
+    #model_root = "/users/a/araujofj/data/save_model/resvit/106/resvit_dilation.tar" # no p.e.
 
 elif model_name == 'setr':
     vit = timm.create_model('vit_base_patch16_384', pretrained=True)
