@@ -69,8 +69,8 @@ class Resvit(nn.Module):
         score = torch.reshape(score, (bs, img_size[1], img_size[0], self.dim))
         score = score.view(
             score.size(0),
-            64,
-            64,
+            img_size[1],
+            img_size[1],
             self.dim
         )
         score = score.permute(0, 3, 1, 2).contiguous()
@@ -79,7 +79,6 @@ class Resvit(nn.Module):
         score = self.bn2(self.relu(self.deconv2(score))) 
         score = self.bn3(self.relu(self.deconv3(score)))
         score = self.classifier(score)     
-
         return score
 
 

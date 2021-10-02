@@ -480,7 +480,7 @@ class LandscapeDataset(Dataset):
                  mean = [0.485, 0.456, 0.406],
                  std = [0.229, 0.224, 0.225],
                  size_img = (512,512),
-                 size_crop = (480,480),
+                 size_crop = (512,512),
                  fill_idx = 255,
                  scale_factor = (0.5,1.2),
                  p = 1,
@@ -600,18 +600,21 @@ class LandscapeDataset(Dataset):
             mask = mask.unsqueeze(0)
             image = TF.affine(image, angle=0, translate=(0.3, 0.3), scale=1.0 , shear= 0, fill=self.fill_idx)
             mask = TF.affine(mask, angle=0, translate=(0.3, 0.3), scale=1.0 , shear= 0, fill=self.fill_idx)
+            image = TF.center_crop(image,self.size_crop)
+            mask = TF.center_crop(mask,self.size_crop)
             mask = mask.squeeze()
 
         # Apply a fixed rotation for test time:
         if self.fixing_rotate:
             mask = mask.unsqueeze(0)
-            image = TF.pad(image,107,padding_mode='symmetric')
-            mask = TF.pad(mask,107,padding_mode='symmetric')
+            #if self.angle_fix not in [0,90,180,270]:
+            #    image = TF.pad(image,107,padding_mode='symmetric')
+            #    mask = TF.pad(mask,107,padding_mode='symmetric')
 
-            image = TF.rotate(image,angle=self.angle_fix,expand=False,fill=self.fill_idx,interpolation=TF.InterpolationMode.BILINEAR)
-            mask = TF.rotate(mask,angle=self.angle_fix,expand=False,fill=self.fill_idx)
-            image = TF.center_crop(image,(512,512))
-            mask = TF.center_crop(mask,(512,512))
+            image = TF.rotate(image,angle=self.angle_fix,expand=True, fill= -1,interpolation=TF.InterpolationMode.BILINEAR)
+            mask = TF.rotate(mask,angle=self.angle_fix,expand=True, fill= -1)
+            image = TF.center_crop(image,self.size_crop)
+            mask = TF.center_crop(mask,self.size_crop)
             mask = mask.squeeze()
         if self.normalize:
             image = TF.normalize(image,self.mean,self.std)

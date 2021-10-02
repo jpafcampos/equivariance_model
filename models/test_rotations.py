@@ -37,7 +37,10 @@ import fcn_small
 operation = "rotation"
 
 model_name = "resvit"
-gpu = '1'
+data_aug = False
+
+#CUIDADO AO USAR SERVER 2, INDEX TROCADO
+gpu = '2'
 os.environ["CUDA_VISIBLE_DEVICES"] = gpu
 device = torch.device("cuda")
 
@@ -47,26 +50,25 @@ dataroot_landcover = "/local/DEEPLEARNING/landcover_v1"
 
 # MODEL CREATION
 
-if model_name == "fcn":
-    #model = models.segmentation.fcn_resnet50(pretrained=True)
-    #model.classifier[4] = nn.Conv2d(512, num_classes, 1, 1)
-    #model.aux_classifier[4] = nn.Conv2d(256, num_classes, 1, 1)
-    resnet50_dilation = models.resnet50(False, replace_stride_with_dilation=[False, True, True])
-    backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
-    model = my_fcn.FCN_(backbone_dilation, num_class=num_classes)
 
-elif model_name == "fcn_small":
+if model_name == "fcn":
     resnet50_dilation = models.resnet50(pretrained=False, replace_stride_with_dilation=[False, True, True])
     backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
     model = fcn_small.FCN_(backbone_dilation, num_class=num_classes, dim=768)
-    model_root = "/users/a/araujofj/data/save_model/FCN/8/small_fcn.tar"
+    #model_root = "/users/a/araujofj/data/save_model/FCN/8/small_fcn.tar"
+    model_root = "/users/a/araujofj/small_fcn.tar"
+    if data_aug:
+        model_root = "/users/a/araujofj/fcn_data_aug.tar"
 
 elif model_name == "resvit":
     resnet50_dilation = models.resnet50(pretrained=True, replace_stride_with_dilation=[False, True, True])
     backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
     model = resvit_small.Resvit(backbone=backbone_dilation, num_class=num_classes, dim=768, depth=1, heads=2, mlp_dim=3072, ff=True)
-    model_root = "/users/a/araujofj/data/save_model/resvit/99/resvit_dilation.tar" #cyclic lr
+    #model_root = "/users/a/araujofj/data/save_model/resvit/99/resvit_dilation.tar" #cyclic lr
     #model_root = "/users/a/araujofj/data/save_model/resvit/106/resvit_dilation.tar" # no p.e.
+    model_root = "/users/a/araujofj/resvit_dilation.tar"
+    if data_aug:
+        model_root = "/users/a/araujofj/resvit_data_aug.tar"
 
 elif model_name == 'setr':
     vit = timm.create_model('vit_base_patch16_384', pretrained=True)
@@ -101,15 +103,17 @@ def validate(model, loader, device, metrics, save_val_results = False):
         for i, (images, labels) in enumerate(loader):
             
             images = images.to(device, dtype=torch.float32)
+            #print(images.size())
             labels = labels.to(device, dtype=torch.long)
             outputs = model(images)
+            #print(outputs.size())
             try:
                 outputs = outputs['out']
             except:
                 pass
             preds = outputs.detach().max(dim=1)[1].cpu().numpy()
             targets = labels.cpu().numpy()
-
+            
             metrics.update(targets, preds)
 
             if save_val_results:
@@ -140,13 +144,15 @@ def validate(model, loader, device, metrics, save_val_results = False):
         score = metrics.get_results()
     return score
 
-angles = [330,340,350,0,10,20,30]
+#angles = [330,340,350,0,10,20,30]
+angles = [206.5, 243.5, 266.5, 296.5, 333.5, 0, 26.5, 63.5, 90, 116.5, 153.5]
+#angles = [0, 90, 180, 270]
 results = {}
 
 if operation == "rotation":
     for angle in angles:
         print("testing angle ", angle)
-        test_dataset = mdset.LandscapeDataset(dataroot_landcover,image_set="test", size_crop= (384,384), fixing_rotate=True, angle_fix = angle)
+        test_dataset = mdset.LandscapeDataset(dataroot_landcover,image_set="test", fixing_rotate=True, angle_fix = angle)
         test_loader = torch.utils.data.DataLoader(test_dataset,num_workers=4,batch_size=1)
         metrics = sm.StreamSegMetrics(num_classes)
         val_score = validate(model=model, loader=test_loader, device=device, metrics=metrics, save_val_results=False)
