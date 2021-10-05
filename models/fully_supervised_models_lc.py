@@ -25,6 +25,7 @@ import resvit_small
 import setr
 import vit
 import segformer
+import fcn_volo
 import transFCN
 import multi_res_vit
 import numpy as np
@@ -197,6 +198,14 @@ def main():
         backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
         model = resnet50ViT.Resvit(backbone_dilation, num_class=num_classes, heads=args.num_heads, mlp_dim=args.mlp_dim)
         print("created resvit with resnet50 backbone replacing stride with dilation")
+        print("Dim, depth, heads and MLP dim: ", args.dim, args.depth, args.num_heads, args.mlp_dim)
+
+    elif args.model.upper()=='FCN_VOLO':
+        print("Pretrained backbone:", args.pretrained)
+        resnet50_dilation = models.resnet50(pretrained=True, replace_stride_with_dilation=[False, True, True])
+        backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
+        model = fcn_volo.FCN_volo(backbone_dilation, num_class=num_classes, dim=args.dim)
+        print("created FCN + VOLO with resnet50 backbone replacing stride with dilation")
         print("Dim, depth, heads and MLP dim: ", args.dim, args.depth, args.num_heads, args.mlp_dim)
 
     elif args.model.upper()=='SEGFORMER':

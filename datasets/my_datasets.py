@@ -491,7 +491,7 @@ class LandscapeDataset(Dataset):
                  scale = True,
                  normalize = True,
                  pi_rotate = True,
-                 translation = True,
+                 translation = False,
                  fixing_rotate = False,
                  angle_fix = 0,
                  angle_max = 360):
