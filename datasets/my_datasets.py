@@ -613,8 +613,8 @@ class LandscapeDataset(Dataset):
 
             image = TF.rotate(image,angle=self.angle_fix,expand=True, fill= -1,interpolation=TF.InterpolationMode.BILINEAR)
             mask = TF.rotate(mask,angle=self.angle_fix,expand=True, fill= -1)
-            image = TF.center_crop(image,self.size_crop)
-            mask = TF.center_crop(mask,self.size_crop)
+            #image = TF.center_crop(image,self.size_crop)
+            #mask = TF.center_crop(mask,self.size_crop)
             mask = mask.squeeze()
         if self.normalize:
             image = TF.normalize(image,self.mean,self.std)

@@ -14,6 +14,7 @@ from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 from timm.models.registry import register_model
 import math
 import numpy as np
+import vit
 
 class OutlookAttention(nn.Module):
     """
@@ -184,6 +185,21 @@ class FCN_volo(nn.Module):
                                 in_chans=in_chans, hidden_dim=stem_hidden_dim,
                                 embed_dim=768)
         self.outlooker = Outlooker(dim=self.dim, kernel_size=3, padding=1)
+
+        self.transformer = vit.ViT(
+            image_size = 64,
+            patch_size = 1,
+            num_classes = 64, #not used
+            dim = dim,
+            depth = 1,    #number of encoders
+            heads = 2,    #number of heads in self attention
+            mlp_dim = 3072,   #hidden dimension in feedforward layer
+            channels = dim,
+            dim_head = dim//2,
+            dropout = 0.1,
+            emb_dropout = 0.1,
+            ff = True
+        )
     
         self.proj    = nn.Conv2d(in_channels=2048, out_channels=dim, kernel_size=3, padding=1)
         #self.proj    = nn.Conv2d(in_channels=2048, out_channels=dim, kernel_size=1, stride=1)
@@ -214,6 +230,15 @@ class FCN_volo(nn.Module):
         img_size = score.shape[-2:]
         score = self.forward_embeddings(score)
         score = self.outlooker(score)
+        score = score.permute(0, 3, 1, 2).contiguous()
+        score = self.transformer(score)
+        score = torch.reshape(score, (bs, img_size[1], img_size[0], self.dim))
+        score = score.view(
+            score.size(0),
+            img_size[1],
+            img_size[1],
+            self.dim
+        )
         score = score.permute(0, 3, 1, 2).contiguous()
         features = score
         score = self.bn1(self.relu(self.deconv1(score)))

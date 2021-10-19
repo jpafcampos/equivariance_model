@@ -40,7 +40,7 @@ model_name = "resvit"
 data_aug = False
 
 #CUIDADO AO USAR SERVER 2, INDEX TROCADO
-gpu = '2'
+gpu = '1'
 os.environ["CUDA_VISIBLE_DEVICES"] = gpu
 device = torch.device("cuda")
 
@@ -59,16 +59,19 @@ if model_name == "fcn":
     model_root = "/users/a/araujofj/small_fcn.tar"
     if data_aug:
         model_root = "/users/a/araujofj/fcn_data_aug.tar"
+        model_root = "/users/a/araujofj/data/save_model/FCN/10/small_fcn.tar"
 
 elif model_name == "resvit":
     resnet50_dilation = models.resnet50(pretrained=True, replace_stride_with_dilation=[False, True, True])
     backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
     model = resvit_small.Resvit(backbone=backbone_dilation, num_class=num_classes, dim=768, depth=1, heads=2, mlp_dim=3072, ff=True)
-    #model_root = "/users/a/araujofj/data/save_model/resvit/99/resvit_dilation.tar" #cyclic lr
-    #model_root = "/users/a/araujofj/data/save_model/resvit/106/resvit_dilation.tar" # no p.e.
-    model_root = "/users/a/araujofj/resvit_dilation.tar"
+    #model_root = "/users/a/araujofj/data/save_model/resvit/69/resvit_dilation.tar" #cyclic lr
+    model_root = "/users/a/araujofj/data/save_model/resvit/106/resvit_dilation.tar" # no p.e.
+    #model_root = "/users/a/araujofj/resvit_dilation.tar"
     if data_aug:
-        model_root = "/users/a/araujofj/resvit_data_aug.tar"
+        #model_root = "/users/a/araujofj/resvit_data_aug.tar"
+        model_root = "/users/a/araujofj/data/save_model/resvit/116/resvit_dilation.tar" #nope
+        model_root = "/users/a/araujofj/data/save_model/resvit/115/resvit_dilation.tar" #with pe
 
 elif model_name == 'setr':
     vit = timm.create_model('vit_base_patch16_384', pretrained=True)
@@ -145,8 +148,8 @@ def validate(model, loader, device, metrics, save_val_results = False):
     return score
 
 #angles = [330,340,350,0,10,20,30]
-angles = [206.5, 243.5, 266.5, 296.5, 333.5, 0, 26.5, 63.5, 90, 116.5, 153.5]
-#angles = [0, 90, 180, 270]
+#angles = [206.5, 243.5, 266.5, 296.5, 333.5, 0, 26.5, 63.5, 90, 116.5, 153.5]
+angles = [0, 90, 180, 270]
 results = {}
 
 if operation == "rotation":
