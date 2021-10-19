@@ -82,6 +82,7 @@ def main():
     parser.add_argument('--landcover', default=False, type=U.str2bool,\
          help="Use Landcover dataset instead of VOC and COCO")
     parser.add_argument('--version', default=0, type=int, help="landcover data set version")
+    parser.add_argument('--lc_new', default = False, type=U.str2bool, help="Uses new data division in LC")
     parser.add_argument('--lc_augs', default = False, type=U.str2bool, help="perform data augs as in the Landcover paper")
     parser.add_argument('--size_img', default=512, type=int,help="Size of input images")
     parser.add_argument('--size_crop', default=480, type=int,help="Size of crop image during training")
@@ -123,6 +124,9 @@ def main():
         dataroot_landcover = "/local/DEEPLEARNING/landcover"
     else:
         dataroot_landcover = "/local/DEEPLEARNING/landcover_v1"
+
+    if args.lc_new:
+        dataroot_landcover = "/local/DEEPLEARNING/lc_new"
 
     if args.size_img < args.size_crop:
         raise Exception('Cannot have size of input images less than size of crop')
