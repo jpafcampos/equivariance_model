@@ -24,6 +24,7 @@ import resnet50ViT
 import resvit_small
 import setr
 import vit
+import rot_eq_fcnVit
 import segformer
 import fcn_volo
 import transFCN
@@ -189,7 +190,7 @@ def main():
     print(args.model.upper())
     if args.model.upper()=='RESVIT_SMALL':
         print("Pretrained backbone:", args.pretrained)
-        resnet50_dilation = models.resnet50(pretrained=True, replace_stride_with_dilation=[False, True, True])
+        resnet50_dilation = models.resnet50(pretrained=args.pretrained, replace_stride_with_dilation=[False, True, True])
         backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
         model = resvit_small.Resvit(backbone=backbone_dilation, num_class=num_classes, dim=args.dim, depth=args.depth, heads=args.num_heads, mlp_dim=args.mlp_dim, ff=args.ff)
         print("created resvit small model")
@@ -198,15 +199,20 @@ def main():
 
     elif args.model.upper()=='RESVIT':
         print("Pretrained backbone:", args.pretrained)
-        resnet50_dilation = models.resnet50(pretrained=True, replace_stride_with_dilation=[False, True, True])
+        resnet50_dilation = models.resnet50(pretrained=args.pretrained, replace_stride_with_dilation=[False, True, True])
         backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
         model = resnet50ViT.Resvit(backbone_dilation, num_class=num_classes, heads=args.num_heads, mlp_dim=args.mlp_dim)
         print("created resvit with resnet50 backbone replacing stride with dilation")
         print("Dim, depth, heads and MLP dim: ", args.dim, args.depth, args.num_heads, args.mlp_dim)
+    
+    elif args.model.upper()=='ROT_EQ_RESVIT':
+        print("rotation equivariant resvit model")
+        model = rot_eq_fcnVit.create_model_groupy(group_elements=4, classes=num_classes, dim=args.dim, depth=args.depth, heads=args.num_heads, mlp_dim=args.mlp_dim)
+        print("Dim, depth, heads and MLP dim: ", args.dim, args.depth, args.num_heads, args.mlp_dim)
 
     elif args.model.upper()=='FCN_VOLO':
         print("Pretrained backbone:", args.pretrained)
-        resnet50_dilation = models.resnet50(pretrained=True, replace_stride_with_dilation=[False, True, True])
+        resnet50_dilation = models.resnet50(pretrained=args.pretrained, replace_stride_with_dilation=[False, True, True])
         backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
         model = fcn_volo.FCN_volo(backbone_dilation, num_class=num_classes, dim=args.dim)
         print("created FCN + VOLO with resnet50 backbone replacing stride with dilation")
