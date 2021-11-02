@@ -1,8 +1,4 @@
 import os,sys
-g_selfatt_source =  os.path.join(os.getcwd(), '/users/a/araujofj/g_selfatt')
-
-if g_selfatt_source not in sys.path:
-    sys.path.append(g_selfatt_source)
     
 import numpy as np
 import torch
@@ -14,23 +10,6 @@ from torchvision.models.vgg import VGG
 from torchvision.models.utils import load_state_dict_from_url
 
 import g_resnet
-
-import vit
-
-import g_selfatt
-from g_selfatt.nn import (
-    Conv3d1x1,
-    GroupLocalSelfAttention,
-    GroupSelfAttention,
-    LayerNorm,
-    LiftLocalSelfAttention,
-    LiftSelfAttention,
-    TransformerBlock,
-    G_vit,
-    activations,
-)
-
-import group_transformer
 
 from typing import Tuple
 
@@ -416,76 +395,12 @@ class Wide_ResNet(torch.nn.Module):
         return feature
 
 
-class RotEquivariantResvit(nn.Module):
+class RotEquivariantFCN(nn.Module):
 
-    def __init__(self, backbone, group_elements, num_class, dim, depth, heads, mlp_dim, original_Transformer=False):
-        super(RotEquivariantResvit, self).__init__()
+    def __init__(self, backbone, group_elements, num_class, dim):
+        super(RotEquivariantFCN, self).__init__()
         self.backbone = backbone
         self.dim = dim
-        self.heads = heads
-        self.dim_head = dim//heads
-        self.original_Transformer = original_Transformer
-        self.group = g_selfatt.groups.E2(num_elements=4)
-        self.Activation = activations.Swish()
-        self.Norm = LayerNorm(256)
-        #self.attention_layer = GroupLocalSelfAttention(group = group,
-        #                               in_channels = dim,
-        #                               mid_channels = mlp_dim,
-        #                               out_channels = dim,
-        #                               num_heads = heads,
-        #                               patch_size=1,
-        #                               attention_dropout_rate = 0.1)
-        #self.lift_attention_layer = LiftLocalSelfAttention(group = group,
-        #                        in_channels = dim,
-        #                        mid_channels = mlp_dim,
-        #                        out_channels = dim,
-        #                        num_heads = heads,
-        #                        patch_size=1,
-        #                        attention_dropout_rate = 0.1)
-        #self.transformer = G_vit (
-        #    in_channels = dim,
-        #    out_channels = dim,
-        #    attention_layer = self.attention_layer,
-        #    norm_type = "LayerNorm",
-        #    activation_function = "Swish",
-        #    crop_size = 0,
-        #    value_dropout_rate = 0.1,
-        #    dim_mlp_conv = 3,
-        #    )
-        self.transformer = vit.ViT(
-            image_size = 64,
-            patch_size = 1,
-            num_classes = 64, #not used
-            dim = dim,
-            depth = depth,    #number of encoders
-            heads = heads,    #number of heads in self attention
-            mlp_dim = mlp_dim,   #hidden dimension in feedforward layer
-            channels = dim,
-            dim_head = self.dim_head,
-            dropout = 0.1,
-            emb_dropout = 0.1,
-            ff = True
-        )
-        #self.transformer = group_transformer.GroupTransformer (
-        #    group=self.group,
-        #    in_channels=256,
-        #    num_channels=dim,
-        #    block_sizes=[1],
-        #    expansion_per_block=1,
-        #    crop_per_layer=[0],
-        #    image_size=64,
-        #    num_classes=5,
-        #    dropout_rate_after_maxpooling=0.0,
-        #    maxpool_after_last_block=False,
-        #    normalize_between_layers=False,
-        #    patch_size=8,
-        #    num_heads=2,
-        #    norm_type= "LayerNorm",
-        #    activation_function="Swish",
-        #    attention_dropout_rate=0.1,
-        #    value_dropout_rate=0.0,
-        #    whitening_scale=1.0,
-        #) 
 
         self.num_class = num_class
 
@@ -507,35 +422,9 @@ class RotEquivariantResvit(nn.Module):
         input_shape = x.shape[-2:] 
         bs = x.size(0)
         feature = self.backbone(x)
+        feature = feature.tensor
         score = feature
-        try:
-            score = feature['feat4']
-        except:
-            pass
-        try:
-            score = score.tensor
-        except:
-            pass
-        img_size = score.shape[-2:]
-        
         score = self.proj(score)
-        #score = self.lift_attention_layer(score)
-        #score = self.Norm(score)
-        #score = self.Activation(score)
-
-        score = self.transformer(score)
-        if self.original_Transformer:
-            score = torch.reshape(score, (bs, img_size[1], img_size[0], self.dim))
-            score = score.view(
-                score.size(0),
-                img_size[1],
-                img_size[1],
-                self.dim
-            )
-            score = score.permute(0, 3, 1, 2).contiguous()
-        else:
-            score = torch.sum(score, 2)
-        features = score
         score = self.bn1(self.relu(self.deconv1(score)))
         score = self.bn2(self.relu(self.deconv2(score))) 
         score = self.bn3(self.relu(self.deconv3(score)))
@@ -543,107 +432,18 @@ class RotEquivariantResvit(nn.Module):
         return score
 
 
-def create_model (group_elements, classes, dim, depth, heads, mlp_dim):
+def create_model (group_elements, classes, dim):
     print("check")
 
     backbone = Wide_ResNet(52, 1, 0.3, initial_stride=2, N=4, f=True, r=0, num_classes=1)
-    model = RotEquivariantResvit(backbone, group_elements, classes, dim, depth, heads, mlp_dim)
+    model = RotEquivariantFCN(backbone, group_elements, classes, dim)
 
     return model
 
-def create_model_e2_original_transformer (group_elements, classes, dim, depth, heads, mlp_dim):
-    print("check")
 
-    backbone = Wide_ResNet(52, 1, 0.3, initial_stride=2, N=4, f=True, r=0, num_classes=1)
-    model = RotEquivariantResvit(backbone, group_elements, classes, dim, depth, heads, mlp_dim, True)
+backbone = Wide_ResNet(52, 1, 0.3, initial_stride=2, N=4, f=True, r=0, num_classes=1)
+model = RotEquivariantFCN(backbone, 4, 5, 768)
 
-    return model
-
-def create_model_groupy (group_elements, classes, dim, depth, heads, mlp_dim):
-    print("check")
-
-    backbone = g_resnet.ResNet50()
-    model = RotEquivariantResvit(backbone, group_elements, classes, dim, depth, heads, mlp_dim)
-
-    return model
-
-def create_model_original_Transformer (group_elements, classes, dim, depth, heads, mlp_dim):
-    print("check")
-
-    backbone = g_resnet.ResNet50()
-    model = RotEquivariantResvit(backbone, group_elements, classes, dim, depth, heads, mlp_dim, True)
-
-    return model
-
-def create_model_original_resnet (group_elements, classes, dim, depth, heads, mlp_dim):
-    print("check")
-
-    resnet50_dilation = models.resnet50(pretrained=True, replace_stride_with_dilation=[False, True, True])
-    backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
-    model = RotEquivariantResvit(backbone_dilation, group_elements, classes, dim, depth, heads, mlp_dim)
-
-    return model
-
-#backbone = Wide_ResNet(52, 1, 0.3, initial_stride=2, N=4, f=True, r=0, num_classes=1)
-#backbone = g_resnet.ResNet50()
-#resnet50_dilation = models.resnet50(pretrained=True, replace_stride_with_dilation=[False, True, True])
-#backbone = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
-#model = RotEquivariantResvit(backbone, 4, 5, 256, 1, 2, 768, True)
-#print(model.training)
-#x = torch.rand([1,3,512,512])
-#y = model(x)
-#print(y.size())
-
-#if __name__ == "__main__":
-#    
-#    parser = ArgumentParser()
-#    
-#    parser.add_argument('--rot90', action='store_true', default=False, help='Makes the model invariant to rotations of 90 degrees')
-#    
-#    config = parser.parse_args()
-#
-#    if config.rot90:
-#        # build a 90 degrees rotation and reflection invariant model (includes both vertical and horizontal reflections)
-#        print("rot eq model")
-#        m = Wide_ResNet(10, 4, 0.3, initial_stride=2, N=4, f=True, r=0, num_classes=10)
-#    else:
-#        # build a reflection invariant model (only reflections along the vertical axis)
-#        m = Wide_ResNet(10, 4, 0.3, initial_stride=1, N=4, f=True, r=3, num_classes=10)
-#        
-#    # Alternative, wider model equivariant to N=8 rotations and reflection
-#    # m = Wide_ResNet(10, 6, 0.3, initial_stride=1, N=8, f=True, r=0, num_classes=10)
-#
-#    m.eval()
-#    
-#    # 3 random 33x33 RGB images (i.e. with 3 channel)
-#    x = torch.randn(3, 3, 513, 513)
-#
-#    x1, x2, x3 = m.features(x)
-#    #print(x1.size())
-#    #print(x2.size())
-#    print(x3.size())
-#
-#
-#    # the images flipped along the vertical axis
-#    x_fv = x.flip(dims=[3])
-#    # the images flipped along the horizontal axis
-#    x_fh = x.flip(dims=[2])
-#    # the images rotated by 90 degrees
-#    x90 = x.rot90(1, (2, 3))
-#    # the images flipped along the horizontal axis and rotated by 90 degrees
-#    x90_fh = x.flip(dims=[2]).rot90(1, (2, 3))
-#
-#    # feed all inputs to the model
-#    y = m(x)
-#    y_fv = m(x_fv)
-#    y_fh = m(x_fh)
-#    y90 = m(x90)
-#    y90_fh = m(x90_fh)
-#
-#    # the outputs should be (about) the same for all transformations the model is invariant to
-#    print()
-#    print('TESTING INVARIANCE:                    ')
-#    print('REFLECTIONS along the VERTICAL axis:   ' + ('YES' if torch.allclose(y, y_fv, atol=1e-6) else 'NO'))
-#    print('REFLECTIONS along the HORIZONTAL axis: ' + ('YES' if torch.allclose(y, y_fh, atol=1e-6) else 'NO'))
-#    print('90 degrees ROTATIONS:                  ' + ('YES' if torch.allclose(y, y90, atol=1e-6) else 'NO'))
-#    print('REFLECTIONS along the 45 degrees axis: ' + ('YES' if torch.allclose(y, y90_fh, atol=1e-6) else 'NO'))
+x = torch.rand([1,3,512,512])
+pred = model(x)
+print(pred.size())

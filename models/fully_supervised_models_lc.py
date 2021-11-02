@@ -27,7 +27,9 @@ import vit
 import rot_eq_fcnVit
 import segformer
 import fcn_volo
+import e2fcn
 import transFCN
+import g_resnet
 import multi_res_vit
 import numpy as np
 
@@ -191,8 +193,10 @@ def main():
     if args.model.upper()=='RESVIT_SMALL':
         print("Pretrained backbone:", args.pretrained)
         resnet50_dilation = models.resnet50(pretrained=args.pretrained, replace_stride_with_dilation=[False, True, True])
+        #resnet50_dilation = models.resnet34(pretrained=args.pretrained)
         backbone_dilation = models._utils.IntermediateLayerGetter(resnet50_dilation, {'layer4': 'feat4'})
-        model = resvit_small.Resvit(backbone=backbone_dilation, num_class=num_classes, dim=args.dim, depth=args.depth, heads=args.num_heads, mlp_dim=args.mlp_dim, ff=args.ff)
+        backbone = g_resnet.ResNet50()
+        model = resvit_small.Resvit(backbone=backbone, num_class=num_classes, dim=args.dim, depth=args.depth, heads=args.num_heads, mlp_dim=args.mlp_dim, ff=args.ff)
         print("created resvit small model")
         print("Dim, depth, heads and MLP dim: ", args.dim, args.depth, args.num_heads, args.mlp_dim)
         print("Feed Forward:", args.ff)
@@ -207,8 +211,15 @@ def main():
     
     elif args.model.upper()=='ROT_EQ_RESVIT':
         print("rotation equivariant resvit model")
-        model = rot_eq_fcnVit.create_model_groupy(group_elements=4, classes=num_classes, dim=args.dim, depth=args.depth, heads=args.num_heads, mlp_dim=args.mlp_dim)
+        #model = rot_eq_fcnVit.create_model(group_elements=4, classes=num_classes, dim=args.dim, depth=args.depth, heads=args.num_heads, mlp_dim=args.mlp_dim)
+        model = rot_eq_fcnVit.create_model_e2_original_transformer(group_elements=4, classes=num_classes, dim=args.dim, depth=args.depth, heads=args.num_heads, mlp_dim=args.mlp_dim)
+        #model = rot_eq_fcnVit.create_model_original_Transformer(group_elements=4, classes=num_classes, dim=args.dim, depth=args.depth, heads=args.num_heads, mlp_dim=args.mlp_dim)
         print("Dim, depth, heads and MLP dim: ", args.dim, args.depth, args.num_heads, args.mlp_dim)
+    
+    elif args.model.upper()=='ROT_EQ_FCN':
+        print("rotation equivariant FCN model")
+        model = e2fcn.create_model(group_elements=4, classes=num_classes, dim=args.dim)
+        print("Dim, depth, heads and MLP dim: ", args.dim)
 
     elif args.model.upper()=='FCN_VOLO':
         print("Pretrained backbone:", args.pretrained)

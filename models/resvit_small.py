@@ -62,7 +62,10 @@ class Resvit(nn.Module):
         input_shape = x.shape[-2:] 
         bs = x.size(0)
         score = self.backbone(x)
-        score = score['feat4']
+        try:
+            score = score['feat4']
+        except:
+            pass
         img_size = score.shape[-2:]
         score = self.proj(score)
         score = self.transformer(score)
